@@ -29,7 +29,21 @@ function getJoueurs()
     sendJSON($joueurs);
 }
 
+function getEquipes()
+{
+    $pdo = getConnexion();
+
+    $req = "SELECT id_equipe, equipe_nom, equipe_score, id_score FROM equipe";
+    $stmt = $pdo->prepare($req);
+    $stmt->execute();
+    $equipes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->closeCursor();
+
+    sendJSON($equipes);
+}
+
 // Vérifie si l'API est appelée correctement
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
     getJoueurs();
+    getEquipes();
 }
