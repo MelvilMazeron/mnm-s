@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+
 export default function HomePage() {
   const [pseudo, setPseudo] = useState("");
   const [team, setTeam] = useState<"left" | "right" | null>(null);
@@ -23,6 +24,12 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen text-white bg-black">
+      <button className="bg-white px-4 py-2 rounded-lg">
+        <a href="/vueSpectateurScore" className="text-black">
+          Aller à Vue Spectateur Score
+        </a>
+      </button>
+      
       <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena </h1>
       {!team && (
         <div className="mb-6">
