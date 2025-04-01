@@ -22,7 +22,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-white">
+    <div className="flex flex-col items-center justify-center min-h-screen text-white bg-black">
       <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena </h1>
       {!team && (
         <div className="mb-6">
