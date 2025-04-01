@@ -29,42 +29,7 @@ function getJoueurs()
     sendJSON($joueurs);
 }
 
-function getEquipes()
-{
-    $pdo = getConnexion();
-
-    $req = "SELECT id_equipe, equipe_nom, equipe_score, id_score FROM equipe";
-    $stmt = $pdo->prepare($req);
-    $stmt->execute();
-    $equipes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $stmt->closeCursor();
-
-    sendJSON($equipes);
-}
-
-function addJoueur()
-{
-    $pdo = getConnexion();
-    $data = json_decode(file_get_contents("php://input"), true);
-
-    if (isset($data["joueur_nom"], $data["id_partie"], $data["id_role"], $data["id_equipe"])) {
-        $req = "INSERT INTO joueurs_ (joueur_nom, id_partie, id_role, id_equipe) VALUES (:joueur_nom, :id_partie, :id_role, :id_equipe)";
-        $stmt = $pdo->prepare($req);
-        $stmt->execute([
-            ":joueur_nom" => $data["joueur_nom"],
-            ":id_partie" => $data["id_partie"],
-            ":id_role" => $data["id_role"],
-            ":id_equipe" => $data["id_equipe"]
-        ]);
-
-        sendJSON(["message" => "Joueur ajouté avec succès"]);
-    } else {
-        sendJSON(["error" => "Données incomplètes"], 400);
-    }
-}
-
 // Vérifie si l'API est appelée correctement
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
     getJoueurs();
-    getEquipes();
 }
