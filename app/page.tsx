@@ -10,8 +10,31 @@ export default function HomePage() {
     right: [],
   });
 
-  const handleJoinTeam = (teamSide: keyof typeof teams) => { 
+  const handleJoinTeam = async (teamSide: keyof typeof teams) => {
     if (!pseudo.trim()) return;
+
+    // 🎯 Valeurs fixes
+    const idPartie = 1;
+    const idRole = 1;
+    const idEquipe = teamSide === "left" ? 1 : 2;
+
+    try {
+      await fetch("http://localhost:8000/php/api.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pseudo: pseudo,
+          equipe: teamSide,
+          id_partie: idPartie,
+          id_role: idRole,
+          id_equipe: idEquipe,
+        }),
+      });
+    } catch (err) {
+      console.error("Erreur lors de l'envoi du pseudo :", err);
+    }
 
     setTeams((prev) => ({
       ...prev,
@@ -20,20 +43,34 @@ export default function HomePage() {
     setTeam(teamSide);
   };
 
-  const changeTeam = (teamSide: keyof typeof teams) => {
+  const changeTeam = async (newTeam: keyof typeof teams) => {
     if (!team) return;
 
+    // Mette à jour les équipes côté client
     setTeams((prev) => {
-      const newTeam = { ...prev };
-
-      newTeam[team] = newTeam[team].filter((player) => player !== pseudo);
-      newTeam[teamSide] = newTeam[teamSide].filter((player) => player !== pseudo);
-      newTeam[teamSide] = [...newTeam[teamSide], pseudo];
-
-      return newTeam;
+      const newTeamList = { ...prev };
+      newTeamList[team] = newTeamList[team].filter((player) => player !== pseudo);
+      newTeamList[newTeam] = [...newTeamList[newTeam], pseudo];
+      return newTeamList;
     });
 
-    setTeam(teamSide);
+    setTeam(newTeam);
+
+    // Mette à jour l'équipe du joueur dans la base de données
+    try {
+      await fetch("http://localhost:8000/php/api.php", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pseudo: pseudo,
+          newTeam: newTeam,
+        }),
+      });
+    } catch (err) {
+      console.error("Erreur lors du changement d'équipe :", err);
+    }
   };
 
   return (
@@ -61,7 +98,6 @@ export default function HomePage() {
           >
             Rejoindre Équipe A
           </button>
-
           <button
             className="bg-red-600 px-6 py-3 rounded-lg hover:bg-red-700"
             onClick={() => handleJoinTeam("right")}
@@ -100,7 +136,9 @@ export default function HomePage() {
 
       <div className="mt-10">
         <button className="bg-white px-4 py-2 rounded-lg">
-          <a href="/vueSpectateurScore" className="text-black">Aller à Vue Spectateur Score</a>
+          <a href="/vueSpectateurScore" className="text-black">
+            Aller à Vue Spectateur Score
+          </a>
         </button>
       </div>
 
