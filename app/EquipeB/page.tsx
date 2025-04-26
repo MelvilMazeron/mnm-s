@@ -28,6 +28,7 @@ function App() {
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
   const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
+  const [equipeClassement, setEquipeClassement] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,6 +149,7 @@ class MyApp extends StatelessWidget {
         setEquipes(data.equipes);
         setEquipeBleu(data.equipeBleu);
         setEquipeRouge(data.equipeRouge);
+        setEquipeClassement(data.equipeClassement);
         setLoading(false);
       })
       .catch((err) => {
@@ -261,6 +263,17 @@ class MyApp extends StatelessWidget {
       )}
 
       {/* Bouton d'accès à la résolution du bug */}
+
+      <div className="w-1/2 p-4 bg-white text-black rounded shadow-md mr-2 mt-[20px]">
+        <h2 className="text-2xl font-bold mb-4">Classement général</h2>
+        <ul>
+          {equipeClassement.map((equipe) => (
+            <li className="text-lg font-bold mb-4" key={equipe.id_equipe}>
+              {equipe.equipe_nom} : {equipe.equipe_score} points
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
