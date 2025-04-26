@@ -9,6 +9,8 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     exit(0);
 }
 
+// Génération d'une connexion à la base de données
+
 function getConnexion()
 {
     try {
@@ -18,6 +20,8 @@ function getConnexion()
     }
 }
 
+// Encoder les informations de la BDD au format json pour affichage avec react
+
 function sendJSON($infos)
 {
     header("Access-Control-Allow-Origin: *");
@@ -26,40 +30,53 @@ function sendJSON($infos)
 }
 
 // Connexion à la base de données
+
 $pdo = getConnexion();
 
 switch ($_SERVER["REQUEST_METHOD"]) {
     case "GET":
-        // 🔹 Récupération des données
+
+        // Récupération des joueurs
         $stmt1 = $pdo->prepare("SELECT * FROM joueurs_");
         $stmt1->execute();
         $joueurs = $stmt1->fetchAll(PDO::FETCH_ASSOC);
         $stmt1->closeCursor();
 
+        // Récupération des joueurs de l'équipe A
         $stmt2 = $pdo->prepare("SELECT * FROM joueurs_ WHERE id_equipe = 1");
         $stmt2->execute();
         $joueursEquipeA = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         $stmt2->closeCursor();
 
+        // Récupération des joueurs de l'équipe B
         $stmt3 = $pdo->prepare("SELECT * FROM joueurs_ WHERE id_equipe = 2");
         $stmt3->execute();
         $joueursEquipeB = $stmt3->fetchAll(PDO::FETCH_ASSOC);
         $stmt3->closeCursor();
 
+        // Récupération des équipes
         $stmt4 = $pdo->prepare("SELECT * FROM equipe");
         $stmt4->execute();
         $equipes = $stmt4->fetchAll(PDO::FETCH_ASSOC);
         $stmt4->closeCursor();
 
+        // Récupération de l'équipe A
         $stmt5 = $pdo->prepare("SELECT * FROM equipe WHERE id_equipe = 1");
         $stmt5->execute();
         $equipeBleu = $stmt5->fetchAll(PDO::FETCH_ASSOC);
         $stmt5->closeCursor();
 
+        // Récupération de l'équipe B
         $stmt6 = $pdo->prepare("SELECT * FROM equipe WHERE id_equipe = 2");
         $stmt6->execute();
         $equipeRouge = $stmt6->fetchAll(PDO::FETCH_ASSOC);
         $stmt6->closeCursor();
+
+        // Récupération des équipes en fonction du score ici du plus grand au plus petit pour le classement
+        $stmt7 = $pdo->prepare("SELECT * FROM equipe ORDER BY equipe_score DESC");
+        $stmt7->execute();
+        $equipeClassement = $stmt7->fetchAll(PDO::FETCH_ASSOC);
+        $stmt7->closeCursor();
 
         sendJSON([
             "joueurs" => $joueurs,
@@ -67,7 +84,8 @@ switch ($_SERVER["REQUEST_METHOD"]) {
             "joueursEquipeB" => $joueursEquipeB,
             "equipes" => $equipes,
             "equipeBleu" => $equipeBleu,
-            "equipeRouge" => $equipeRouge
+            "equipeRouge" => $equipeRouge,
+            "equipeClassement" => $equipeClassement
         ]);
         break;
 
