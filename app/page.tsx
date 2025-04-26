@@ -13,7 +13,6 @@ export default function HomePage() {
   const handleJoinTeam = async (teamSide: keyof typeof teams) => {
     if (!pseudo.trim()) return;
 
-    // 🎯 Valeurs fixes
     const idPartie = 1;
     const idRole = 1;
     const idEquipe = teamSide === "left" ? 1 : 2;
@@ -46,7 +45,6 @@ export default function HomePage() {
   const changeTeam = async (newTeam: keyof typeof teams) => {
     if (!team) return;
 
-    // Mette à jour les équipes côté client
     setTeams((prev) => {
       const newTeamList = { ...prev };
       newTeamList[team] = newTeamList[team].filter((player) => player !== pseudo);
@@ -56,7 +54,6 @@ export default function HomePage() {
 
     setTeam(newTeam);
 
-    // Mette à jour l'équipe du joueur dans la base de données
     try {
       await fetch("http://localhost:8000/php/api.php", {
         method: "PUT",
