@@ -1,7 +1,17 @@
 "use client";
 import { useState } from "react";
+import io from "socket.io-client";
+import { useEffect } from "react";
+
+const socket = io('http://localhost:3001');
 
 export default function PageJeu() {
+    
+    const [random, setRandom] = useState(Math.floor(Math.random() * 5) + 1);
+
+
+    const [score, setScore] = useState(0);
+
     const [codePhp, setCodePhp] = useState(
         `<?php 
         $name = "Alice"
@@ -94,6 +104,8 @@ export default function PageJeu() {
         setCodePhp(newCode);
         if (newCode === correctPhp) {
             setIsVictoryPhp(true);
+            setScore((prevScore) => prevScore + 1);
+            socket.emit('victory', { language: 'php' });
         } else {
             setIsVictoryPhp(false);
         }
@@ -103,6 +115,8 @@ export default function PageJeu() {
         setCodeJsx(newCode);
         if (newCode === correctJsx) {
             setIsVictoryJsx(true);
+            setScore((prevScore) => prevScore + 1);
+            socket.emit('victory', { language: 'jsx' });
         } else {
             setIsVictoryJsx(false);
         }
@@ -112,6 +126,8 @@ export default function PageJeu() {
         setCodeFlutter(newCode);
         if (newCode === correctFlutter) {
             setIsVictoryFlutter(true);
+            setScore((prevScore) => prevScore + 1);
+            socket.emit('victory', { language: 'flutter' });
         } else {
             setIsVictoryFlutter(false);
         }
@@ -121,6 +137,8 @@ export default function PageJeu() {
         setCodeCPlusPlus(newCode);
         if (newCode === correctCplusplus) {
             setIsVictoryCPlusPlus(true);
+            setScore((prevScore) => prevScore + 1);
+            socket.emit('victory', { language: 'c++' });
         } else {
             setIsVictoryCPlusPlus(false);
         }
@@ -130,6 +148,8 @@ export default function PageJeu() {
         setCodeCefsharp(newCode);
         if (newCode === correctCefsharp) {
             setIsVictoryCefsharp(true);
+            setScore((prevScore) => prevScore + 1);
+            socket.emit('victory', { language: 'c#' });
         } else {
             setIsVictoryCefsharp(false);
         }
@@ -218,6 +238,9 @@ export default function PageJeu() {
                 <div className="border-2 border-green-500 rounded-lg p-4 bg-gray-800">
                     {PhpCorrection()}
                 </div>
+                <div className="absolute top-5 text-white text-xl">
+                    Score: {score}
+                </div>
             </div>
         );
     }
@@ -262,9 +285,51 @@ export default function PageJeu() {
             </div>
         );
     }
+    
+    useEffect(() => {
+        socket.on('victory', (data) => {
+            const language = data.language;
 
-    const random = 
-        Math.floor(Math.random() * 5) + 1; 
+            if (language === 'php') {
+                setIsVictoryPhp(true);
+                setScore((prevScore) => prevScore + 1);
+            } else if (language === 'jsx') {
+                setIsVictoryJsx(true);
+                setScore((prevScore) => prevScore + 1);
+            } else if (language === 'flutter') {
+                setIsVictoryFlutter(true);
+                setScore((prevScore) => prevScore + 1);
+            } else if (language === 'cplusplus') {
+                setIsVictoryCPlusPlus(true);
+                setScore((prevScore) => prevScore + 1);
+            } else if (language === 'cefsharp') {
+                setIsVictoryCefsharp(true);
+                setScore((prevScore) => prevScore + 1);
+            }
+        });
+
+        return () => {
+            socket.off('victory');
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isVictoryPhp || isVictoryJsx || isVictoryFlutter || isVictoryCPlusPlus || isVictoryCefsharp) {
+            const timeout = setTimeout(() => {
+                setIsVictoryPhp(false);
+                setIsVictoryJsx(false);
+                setIsVictoryFlutter(false);
+                setIsVictoryCPlusPlus(false);
+                setIsVictoryCefsharp(false);
+
+                const newRandom = Math.floor(Math.random() * 5) + 1;
+                setRandom(newRandom);
+            }, 5000);
+
+            return () => clearTimeout(timeout);
+        }
+    }, [isVictoryPhp, isVictoryJsx, isVictoryFlutter, isVictoryCPlusPlus, isVictoryCefsharp]);
+
         if (random === 1) {
             return (
                 <div className="flex flex-col items-center mb-5 justify-center min-h-screen text-white bg-black" id="1">
@@ -356,5 +421,5 @@ export default function PageJeu() {
             </div>
         );
     }
-    return null; 
+    return null;
 }
