@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function HomePage() {
   const [pseudo, setPseudo] = useState("");
+  const [role, setRole] = useState("");
   const [team, setTeam] = useState<"left" | "right" | null>(null);
   const [teams, setTeams] = useState<{ left: string[]; right: string[] }>({
     left: [],
@@ -11,12 +12,11 @@ export default function HomePage() {
   });
 
   const handleJoinTeam = async (teamSide: keyof typeof teams) => {
-    if (!pseudo.trim()) return;
-
-    const idPartie = 1;
-    const idRole = 1;
+    if (!pseudo.trim() || !role) return; // Ajoute une vérification pour s'assurer que le rôle est sélectionné.
+  
+    // const idPartie = 1;
     const idEquipe = teamSide === "left" ? 1 : 2;
-
+  
     try {
       await fetch("http://localhost:8000/php/api.php", {
         method: "POST",
@@ -26,21 +26,21 @@ export default function HomePage() {
         body: JSON.stringify({
           pseudo: pseudo,
           equipe: teamSide,
-          id_partie: idPartie,
-          id_role: idRole,
+          id_role: role,
           id_equipe: idEquipe,
         }),
       });
     } catch (err) {
       console.error("Erreur lors de l'envoi du pseudo :", err);
     }
-
+  
     setTeams((prev) => ({
       ...prev,
       [teamSide]: [...prev[teamSide], pseudo],
     }));
     setTeam(teamSide);
   };
+  
 
   const changeTeam = async (newTeam: keyof typeof teams) => {
     if (!team) return;
@@ -62,6 +62,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           pseudo: pseudo,
+          id_role: role,
           newTeam: newTeam,
         }),
       });
@@ -86,6 +87,25 @@ export default function HomePage() {
           />
         </div>
       )}
+
+      {!team && (
+        <div className="mb-6">
+          <label className="text-white mb-2 block">Choisir un rôle</label>
+          <select
+            className="p-2 rounded-lg border border-gray-400 text-black bg-white w-full"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            <option value="">-- Sélectionner un rôle --</option>
+            <option value="expert_php">Expert PHP</option>
+            <option value="expert_react">Expert React</option>
+            <option value="expert_c++">Expert C++</option>
+            <option value="expert_c#">Expert C#</option>
+            <option value="expert_mobile">Expert dev mobile</option>
+          </select>
+        </div>
+      )}
+
 
       {!team && (
         <div className="flex gap-10">

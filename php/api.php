@@ -14,7 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
 function getConnexion()
 {
     try {
-        return new PDO("mysql:host=localhost;dbname=mnm;charset=utf8", "root", "");
+        return new PDO("mysql:host=localhost;dbname=mnm;charset=utf8", "root", "");   /*mysql:host=localhost;dbname=mnm;charset=utf8", "root", ""   mysql:host=cloud3.googiehost.com;dbname=biblioth_mnm;charset=utf8", "testMnm", "^D2Jj0qaj^^f*/
     } catch (Exception $e) {
         die(json_encode(["error" => "Erreur de connexion : " . $e->getMessage()])); 
     }
@@ -78,6 +78,12 @@ switch ($_SERVER["REQUEST_METHOD"]) {
         $equipeClassement = $stmt7->fetchAll(PDO::FETCH_ASSOC);
         $stmt7->closeCursor();
 
+        // Récupération des bug pour afficher les bugs avec erreur et leur solution
+        $stmt8 = $pdo->prepare("SELECT * FROM bug");
+        $stmt8->execute();
+        $bugs = $stmt8->fetchAll(PDO::FETCH_ASSOC);
+        $stmt8->closeCursor();
+
         sendJSON([
             "joueurs" => $joueurs,
             "joueursEquipeA" => $joueursEquipeA,
@@ -85,7 +91,8 @@ switch ($_SERVER["REQUEST_METHOD"]) {
             "equipes" => $equipes,
             "equipeBleu" => $equipeBleu,
             "equipeRouge" => $equipeRouge,
-            "equipeClassement" => $equipeClassement
+            "equipeClassement" => $equipeClassement,
+            "bugs" => $bugs
         ]);
         break;
 
@@ -97,13 +104,14 @@ switch ($_SERVER["REQUEST_METHOD"]) {
         $equipe = $data["equipe"] ?? null;
 
         // On prend ce que le frontend envoie si c’est dispo, sinon fallback
-        $id_partie = $data["id_partie"] ?? 1;
-        $id_role = $data["id_role"] ?? 1;
+        // $id_partie = $data["id_partie"] ?? 1;
+        $id_role = $data["id_role"] ?? null;
         $id_equipe = $data["id_equipe"] ?? (($equipe === "left") ? 1 : 2);
 
-        if ($pseudo && $id_partie && $id_role && $id_equipe) {
-            $stmt = $pdo->prepare("INSERT INTO joueurs_ (joueur_nom, id_partie, id_role, id_equipe) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$pseudo, $id_partie, $id_role, $id_equipe]);
+        if ($pseudo && $id_role && $id_equipe) {
+            $stmt = $pdo->prepare("INSERT INTO joueurs_ (joueur_nom, id_role, id_equipe) VALUES (?, ?, ?)");
+            $stmt->execute([$pseudo, $id_role, $id_equipe]);
+        
             sendJSON(["success" => true]);
         } else {
             http_response_code(400);
