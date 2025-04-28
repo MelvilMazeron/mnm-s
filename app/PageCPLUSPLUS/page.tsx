@@ -3,29 +3,45 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PageCPLUSPLUS() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
 
-    const [codeCPlusPlus, setCodeCPlusPlus] = useState(
-        `#include <iostream> 
-        using namespace std;
-        
-        int main() { 
-            cout << "Hello world! << endl; 
-            return 0; 
-        }`
-    );
+    const [codeCPlusPlus, setCodeCPlusPlus] = useState('');
+    const [correctCplusplus, setCorrectCplusplus] = useState('');
     const [isVictoryCPlusPlus, setIsVictoryCPlusPlus] = useState(false);
 
-    const correctCplusplus = `#include <iostream> 
-    using namespace std;
-    
-    int main() { 
-        cout << "Hello world!" << endl; 
-        return 0; 
-    }`;
+    // Récupérer les données du serveur
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
+                const data = await response.json();
+
+                const bugCplusplus = data.bugs.find((bug: Bug) => bug.id_bug === 3);
+
+                if (bugCplusplus) {
+                    setCodeCPlusPlus(bugCplusplus.bug_codeinitial);
+                    setCorrectCplusplus(bugCplusplus.bug_reponse);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du bug C++:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -37,62 +53,63 @@ export default function PageCPLUSPLUS() {
         };
     }, []);
 
-    // Écoute des événements de victoire
+    // Gestion des événements socket
     useEffect(() => {
         if (!socket) return;
 
-        const victoryHandler = (data: { language: string }) => {
+        const handleVictory = (data: { language: string }) => {
             if (data.language === 'c++') {
                 setIsVictoryCPlusPlus(true);
-                setScore((prevScore) => prevScore + 1);
+                setScore(prev => prev + 1);
             }
         };
 
-        socket.on('victory', victoryHandler);
+        socket.on('victory', handleVictory);
 
         return () => {
-            socket.off('victory', victoryHandler);
+            socket.off('victory', handleVictory);
         };
     }, [socket]);
 
+    // Redirection après victoire
     useEffect(() => {
-        if (isVictoryCPlusPlus) {
-            const timeout = setTimeout(() => {
-                setIsVictoryCPlusPlus(false);
-                router.push("/EquipeA");
-            }, 5000);
+        if (!isVictoryCPlusPlus) return;
 
-            return () => clearTimeout(timeout);
-        }
+        const timer = setTimeout(() => {
+            router.push("/EquipeA");
+        }, 5000);
+
+        return () => clearTimeout(timer);
     }, [isVictoryCPlusPlus, router]);
 
-    const handleCodeChangeCPlusPlus = (newCode: string) => {
+    // Nettoyage du code avant de le comparer
+    const handleCodeChange = (newCode: string) => {
         setCodeCPlusPlus(newCode);
-        if (newCode === correctCplusplus) {
-            setIsVictoryCPlusPlus(true);
-            setScore((prevScore) => prevScore + 1);
-            if (socket) {
-                socket.emit('victory', { language: 'c++' });
-            }
-        } else {
-            setIsVictoryCPlusPlus(false);
+
+        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
+        const cleanedUserCode = newCode
+            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
+            .trim(); // Enlève les espaces au début et à la fin
+        const cleanedCorrectCode = correctCplusplus
+            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
+            .trim(); // Enlève les espaces au début et à la fin
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
+
+        setIsVictoryCPlusPlus(isCorrect);
+
+        if (isCorrect && socket) {
+            setScore(prev => prev + 1);
+            socket.emit('victory', { language: 'c++' });
         }
     };
 
-    const CPlusPlusCorrection = () => {
-        return (
-            <pre>
-                {`#include <iostream> 
-    using namespace std;
-    
-    int main() { 
-        cout << "Hello world!`}
-                <span className="text-red-500">"</span> {`<< endl; 
-        return 0; 
-    }`}
-            </pre>
-        );
-    };
+    // Affichage de la correction du code
+    const CPlusPlusCorrection = () => (
+        <pre className="text-white whitespace-pre-wrap">
+            {correctCplusplus}
+        </pre>
+    );
 
     if (isVictoryCPlusPlus) {
         return (
@@ -115,7 +132,7 @@ export default function PageCPLUSPLUS() {
                         name="exerciceC++"
                         id="exerciceC++"
                         value={codeCPlusPlus}
-                        onChange={(e) => handleCodeChangeCPlusPlus(e.target.value)}
+                        onChange={(e) => handleCodeChange(e.target.value)}
                     ></textarea>
                 </div>
             </div>
