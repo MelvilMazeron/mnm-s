@@ -68,7 +68,7 @@ export default function PagePHP() {
 
     const CorrectionDisplay = () => (
         <pre className="text-white">
-            {`<?php\n$name = "Alice`}
+            {`<?php\n$name = "Alice"`}
             <span className="text-red-500">;</span>
             {`\necho "Bonjour " . $name;\n?>`}
         </pre>
