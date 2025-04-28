@@ -157,8 +157,22 @@ function App() {
           <div className="mt-6 text-center">
             <button
               onClick={() => {
+                // Vérification si le rôle attribué correspond à celui de la techno choisie
                 if (roleAttribue === rolesDisponibles[technoChoisie ?? ""]) {
-                  router.push("/resoudreexercice"); // Redirection vers la page
+                  // Redirection en fonction du rôle
+                  if (roleAttribue === "Expert PHP") {
+                    router.push("/PagePHP");
+                  } else if (roleAttribue === "Expert React") {
+                    router.push("/PageJSX");
+                  } else if (roleAttribue === "Expert C++") {
+                    router.push("/PageCPLUSPLUS");
+                  } else if (roleAttribue === "Expert dev mobile") {
+                    router.push("/PageFLUTTER");
+                  } else if (roleAttribue === "Expert C#") {
+                    router.push("/PageCEFSHARP");
+                  } else {
+                    alert("Ce n’est pas votre rôle, vous ne pouvez pas résoudre ce bug.");
+                  }
                 } else {
                   alert("Ce n’est pas votre rôle, vous ne pouvez pas résoudre ce bug.");
                 }
@@ -166,7 +180,7 @@ function App() {
               disabled={!technoChoisie}
               className={`p-2 rounded w-full font-semibold ${
                 roleAttribue === rolesDisponibles[technoChoisie ?? ""]
-                  ? "bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
                   : "bg-gray-400 text-white cursor-not-allowed"
               }`}
             >
