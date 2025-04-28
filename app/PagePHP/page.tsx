@@ -1,20 +1,15 @@
 "use client";
-import { useState } from "react";
-import io from "socket.io-client";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 
-const socket = io('http://localhost:3001');
-
-export default function PageJeu() {
+export default function PagePHP() {
+    const router = useRouter();
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-
     const [codePhp, setCodePhp] = useState(
-        `<?php 
-        $name = "Alice"
-        echo "Bonjour " . $name; 
-        ?>`
+        `<?php\n$name = "Alice"\necho "Bonjour " . $name;\n?>`
     );
-
     const [isVictoryPhp, setIsVictoryPhp] = useState(false);
 
     const correctPhp = `<?php 
@@ -22,80 +17,90 @@ export default function PageJeu() {
     echo "Bonjour " . $name; 
     ?>`;
 
-    const handleCodeChangePhp = (newCode: string) => {
+    // Initialisation du socket
+    useEffect(() => {
+        const socketInstance = io('http://localhost:3001');
+        setSocket(socketInstance);
+
+        return () => {
+            socketInstance.disconnect();
+        };
+    }, []);
+
+    // Gestion des événements socket
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleVictory = (data: { language: string }) => {
+            if (data.language === 'php') {
+                setIsVictoryPhp(true);
+                setScore(prev => prev + 1);
+            }
+        };
+
+        socket.on('victory', handleVictory);
+        return () => {
+            socket.off('victory', handleVictory);
+        };
+    }, [socket]);
+
+    // Redirection après victoire
+    useEffect(() => {
+        if (!isVictoryPhp) return;
+
+        const timer = setTimeout(() => {
+            router.push("/EquipeA");
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [isVictoryPhp, router]);
+
+    const handleCodeChange = (newCode: string) => {
         setCodePhp(newCode);
-        if (newCode === correctPhp) {
-            setIsVictoryPhp(true);
-            setScore((prevScore) => prevScore + 1);
+        const isCorrect = newCode === correctPhp;
+        setIsVictoryPhp(isCorrect);
+        
+        if (isCorrect && socket) {
+            setScore(prev => prev + 1);
             socket.emit('victory', { language: 'php' });
-        } else {
-            setIsVictoryPhp(false);
         }
     };
 
-
-    const PhpCorrection = () => {
-        return (
-          <pre>
-            {`<?php \n    $name = "Alice"`}
+    const CorrectionDisplay = () => (
+        <pre className="text-white">
+            {`<?php\n$name = "Alice`}
             <span className="text-red-500">;</span>
-            {`\n    echo "Bonjour " . $name; \n?>`}
-          </pre>
-        );
-      };
-    
+            {`\necho "Bonjour " . $name;\n?>`}
+        </pre>
+    );
 
     if (isVictoryPhp) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-black text-white">
-                <div className="border-2 border-green-500 rounded-lg p-4 bg-gray-800">
-                    {PhpCorrection()}
+            <div className="flex items-center justify-center min-h-screen bg-black">
+                <div className="border-2 border-green-500 rounded-lg p-6 bg-gray-800 max-w-md">
+                    <CorrectionDisplay />
                 </div>
             </div>
         );
     }
-    
-    useEffect(() => {
-        socket.on('victory', (data) => {
-            const language = data.language;
-    
-            if (language === 'php') {
-                setIsVictoryPhp(true);
-                setScore((prevScore) => prevScore + 1);
-            }
-        });
-    
-        return () => {
-            socket.off('victory');
-        };
-    }, []);
-
-    useEffect(() => {
-        if (isVictoryPhp) {
-            const timeout = setTimeout(() => {
-                setIsVictoryPhp(false);
-            }, 5000);
-
-            return () => clearTimeout(timeout);
-        }
-    }, [isVictoryPhp]);
 
     return (
-        <div className="flex flex-col items-center mb-5 justify-center min-h-screen text-white bg-black" id="1">
-            <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena</h1>
-            <div className="flex flex-col items-center mb-5" >
-                <img className="max-w-45 mb-5  justify-center" src="/images/logoPHP.png" id="1" alt="" />
-                <div>
-                    <textarea
-                        className="border-2 border-white rounded-lg p-2 text-white w-96 h-40 bg-black"
-                        name="exercicePhp"
-                        id="exercicePhp"
-                        value={codePhp}
-                        onChange={(e) => handleCodeChangePhp(e.target.value)}
-                    ></textarea>
-                </div>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
+            <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
+            <div className="flex flex-col items-center w-full max-w-md">
+                <img 
+                    src="/images/logoPHP.png" 
+                    alt="PHP Logo" 
+                    className="w-24 h-24 mb-6 object-contain"
+                />
+                <textarea
+                    className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+                    value={codePhp}
+                    onChange={(e) => handleCodeChange(e.target.value)}
+                    spellCheck="false"
+                    aria-label="PHP code editor"
+                />
             </div>
         </div>
-    );      
-        
+    );
 }

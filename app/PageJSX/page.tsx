@@ -1,23 +1,16 @@
 "use client";
-import { useState } from "react";
-import io from "socket.io-client";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import { io, Socket } from "socket.io-client";
+import { useRouter } from "next/navigation";
 
-const socket = io('http://localhost:3001');
-
-export default function PageJeu() {
+export default function PageJSX() {
+    const router = useRouter();
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-
     const [codeJsx, setCodeJsx] = useState(
-        `import React from 'react'; 
-        function Greeting(props) { 
-            return <h1>Hello {props.name</h1>; 
-        } 
-        export default Greeting;`
+        `import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name</h1>;\n}\nexport default Greeting;`
     );
-
     const [isVictoryJsx, setIsVictoryJsx] = useState(false);
-
 
     const correctJsx = `import React from 'react'; 
     function Greeting(props) { 
@@ -25,72 +18,90 @@ export default function PageJeu() {
     } 
     export default Greeting;`;
 
-    const handleCodeChangeJsx = (newCode: string) => {
+    // Initialisation du socket
+    useEffect(() => {
+        const socketInstance = io('http://localhost:3001');
+        setSocket(socketInstance);
+
+        return () => {
+            socketInstance.disconnect();
+        };
+    }, []);
+
+    // Gestion des événements socket
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleVictory = (data: { language: string }) => {
+            if (data.language === 'jsx') {
+                setIsVictoryJsx(true);
+                setScore(prev => prev + 1);
+            }
+        };
+
+        socket.on('victory', handleVictory);
+        return () => {
+            socket.off('victory', handleVictory);
+        };
+    }, [socket]);
+
+    // Redirection après victoire
+    useEffect(() => {
+        if (!isVictoryJsx) return;
+
+        const timer = setTimeout(() => {
+            router.push("/EquipeA");
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [isVictoryJsx, router]);
+
+    const handleCodeChange = (newCode: string) => {
         setCodeJsx(newCode);
-        if (newCode === correctJsx) {
-            setIsVictoryJsx(true);
-            setScore((prevScore) => prevScore + 1);
+        const isCorrect = newCode === correctJsx;
+        setIsVictoryJsx(isCorrect);
+        
+        if (isCorrect && socket) {
+            setScore(prev => prev + 1);
             socket.emit('victory', { language: 'jsx' });
-        } else {
-            setIsVictoryJsx(false);
         }
     };
 
-      const Jsxcorrection = () => {
-        return (
-            <pre className="text-white">
-    {`import React from 'react'; 
-    function Greeting(props) { 
-        return <h1>Hello {props.name`}
-    <span className="text-red-500">{`}`}</span>
-    {`</h1>; 
-    } 
-    export default Greeting;`}
-            </pre>
-        );
-    };
+    const CorrectionDisplay = () => (
+        <pre className="text-white">
+            {`import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name`}
+            <span className="text-red-500">{`}`}</span>
+            {`</h1>;\n}\nexport default Greeting;`}
+        </pre>
+    );
 
     if (isVictoryJsx) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-black text-white">
-                <div className="border-2 border-green-500 rounded-lg p-4 bg-gray-800">
-                    {Jsxcorrection()}
+            <div className="flex items-center justify-center min-h-screen bg-black">
+                <div className="border-2 border-green-500 rounded-lg p-6 bg-gray-800 max-w-2xl">
+                    <CorrectionDisplay />
                 </div>
             </div>
         );
     }
 
-    
-    useEffect(() => {
-        socket.on('victory', (data) => {
-            const language = data.language;
-            if (language === 'jsx') {
-                setIsVictoryJsx(true);
-                setScore((prevScore) => prevScore + 1);
-            }
-        });
-
-        return () => {
-            socket.off('victory');
-        };
-    }, []);
-
-        return (
-            <div className="flex flex-col items-center mb-5 justify-center min-h-screen text-white bg-black" id="2">
-                <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena</h1>
-                <div className="flex flex-col items-center mb-5" >
-                    <img className="max-w-45 mb-5" src="/images/logoJSX.png" id="2" alt="" />
-                    <div>
-                        <textarea
-                            className="border-2 border-white rounded-lg p-2 text-white w-96 h-40 bg-black"
-                            name="exerciceJsx"
-                            id="exerciceJsx"
-                            value={codeJsx}
-                            onChange={(e) => handleCodeChangeJsx(e.target.value)}
-                        ></textarea>
-                    </div>
-                </div>
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
+            <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
+            <div className="flex flex-col items-center w-full max-w-2xl">
+                <img 
+                    src="/images/logoJSX.png" 
+                    alt="JSX Logo" 
+                    className="w-24 h-24 mb-6 object-contain"
+                />
+                <textarea
+                    className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+                    value={codeJsx}
+                    onChange={(e) => handleCodeChange(e.target.value)}
+                    spellCheck="false"
+                    aria-label="JSX code editor"
+                />
             </div>
-        );
-    
+        </div>
+    );
 }
