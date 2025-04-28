@@ -1,55 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface Role {
+  id_role: number;
+  role_role: string;
+}
 
 export default function HomePage() {
   const [pseudo, setPseudo] = useState("");
   const [role, setRole] = useState("");
+  const [roles, setRoles] = useState<Role[]>([]);
   const [team, setTeam] = useState<"left" | "right" | null>(null);
   const [teams, setTeams] = useState<{ left: string[]; right: string[] }>({
     left: [],
     right: [],
   });
 
+  // 🔥 Récupérer les rôles dynamiquement
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/php/api.php?get_roles=1");
+        const data = await res.json();
+        setRoles(data.roles);
+      } catch (err) {
+        console.error("Erreur lors du chargement des rôles :", err);
+      }
+    };
+
+    fetchRoles();
+  }, []);
+
   const handleJoinTeam = async (teamSide: keyof typeof teams) => {
-    if (!pseudo.trim() || !role) return; // Ajoute une vérification pour s'assurer que le rôle est sélectionné.
-  
-    // const idPartie = 1;
+    if (!pseudo.trim() || !role) return;
+
     const idEquipe = teamSide === "left" ? 1 : 2;
-  
+
     try {
       await fetch("http://localhost:8000/php/api.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pseudo: pseudo,
-          equipe: teamSide,
-          id_role: role,
+          id_role: parseInt(role),
           id_equipe: idEquipe,
         }),
       });
     } catch (err) {
       console.error("Erreur lors de l'envoi du pseudo :", err);
     }
-  
+
     setTeams((prev) => ({
       ...prev,
       [teamSide]: [...prev[teamSide], pseudo],
     }));
     setTeam(teamSide);
   };
-  
 
   const changeTeam = async (newTeam: keyof typeof teams) => {
     if (!team) return;
 
     setTeams((prev) => {
-      const newTeamList = { ...prev };
-      newTeamList[team] = newTeamList[team].filter((player) => player !== pseudo);
-      newTeamList[newTeam] = [...newTeamList[newTeam], pseudo];
-      return newTeamList;
+      const updatedTeams = { ...prev };
+      updatedTeams[team] = updatedTeams[team].filter((player) => player !== pseudo);
+      updatedTeams[newTeam] = [...updatedTeams[newTeam], pseudo];
+      return updatedTeams;
     });
 
     setTeam(newTeam);
@@ -57,12 +73,9 @@ export default function HomePage() {
     try {
       await fetch("http://localhost:8000/php/api.php", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pseudo: pseudo,
-          id_role: role,
           newTeam: newTeam,
         }),
       });
@@ -76,52 +89,49 @@ export default function HomePage() {
       <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena</h1>
 
       {!team && (
-        <div className="mb-6">
-          <label className="text-white">Entrer le pseudo</label>
-          <input
-            type="text"
-            placeholder="Entre ton pseudo"
-            value={pseudo}
-            onChange={(e) => setPseudo(e.target.value)}
-            className="p-2 rounded-lg border border-gray-400 text-white"
-          />
-        </div>
-      )}
+        <>
+          <div className="mb-6">
+            <label className="text-white">Entrer le pseudo</label>
+            <input
+              type="text"
+              placeholder="Entre ton pseudo"
+              value={pseudo}
+              onChange={(e) => setPseudo(e.target.value)}
+              className="p-2 rounded-lg border border-gray-400 text-white"
+            />
+          </div>
 
-      {!team && (
-        <div className="mb-6">
-          <label className="text-white mb-2 block">Choisir un rôle</label>
-          <select
-            className="p-2 rounded-lg border border-gray-400 text-black bg-white w-full"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="">-- Sélectionner un rôle --</option>
-            <option value="expert_php">Expert PHP</option>
-            <option value="expert_react">Expert React</option>
-            <option value="expert_c++">Expert C++</option>
-            <option value="expert_c#">Expert C#</option>
-            <option value="expert_mobile">Expert dev mobile</option>
-          </select>
-        </div>
-      )}
+          {/* <div className="mb-6">
+            <label className="text-white mb-2 block">Choisir un rôle</label>
+            <select
+              className="p-2 rounded-lg border border-gray-400 text-black bg-white w-full"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              <option value="">-- Sélectionner un rôle --</option>
+              <option value="1">Expert PHP</option>
+              <option value="2">Expert React</option>
+              <option value="3">Expert C++</option>
+              <option value="4">Expert C#</option>
+              <option value="5">Expert Dev Mobile</option>
+            </select>
+          </div> */}
 
-
-      {!team && (
-        <div className="flex gap-10">
-          <button
-            className="bg-blue-600 px-6 py-3 rounded-lg hover:bg-blue-700"
-            onClick={() => handleJoinTeam("left")}
-          >
-            Rejoindre Équipe A
-          </button>
-          <button
-            className="bg-red-600 px-6 py-3 rounded-lg hover:bg-red-700"
-            onClick={() => handleJoinTeam("right")}
-          >
-            Rejoindre Équipe B
-          </button>
-        </div>
+          <div className="flex gap-10">
+            <button
+              className="bg-blue-600 px-6 py-3 rounded-lg hover:bg-blue-700"
+              onClick={() => handleJoinTeam("left")}
+            >
+              Rejoindre Équipe A
+            </button>
+            <button
+              className="bg-red-600 px-6 py-3 rounded-lg hover:bg-red-700"
+              onClick={() => handleJoinTeam("right")}
+            >
+              Rejoindre Équipe B
+            </button>
+          </div>
+        </>
       )}
 
       <div className="flex gap-20 mt-10">
@@ -134,12 +144,14 @@ export default function HomePage() {
           </ul>
         </div>
 
-        <button
-          className="bg-black px-4 py-2 rounded shadow hover:bg-neutral-900 border-2 border-white h-fit self-center"
-          onClick={() => changeTeam(team === "left" ? "right" : "left")}
-        >
-          <p>Changer d'équipe</p>
-        </button>
+        {team && (
+          <button
+            className="bg-black px-4 py-2 rounded shadow hover:bg-neutral-900 border-2 border-white h-fit self-center"
+            onClick={() => changeTeam(team === "left" ? "right" : "left")}
+          >
+            Changer d'équipe
+          </button>
+        )}
 
         <div className="p-6 border-2 border-red-500 rounded-lg w-60">
           <h2 className="text-xl font-bold mb-3">Équipe B</h2>

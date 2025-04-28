@@ -122,7 +122,7 @@ function App() {
   if (loading) return <p>Chargement...</p>;
   if (error) return <p>Erreur : {error}</p>;
 
-  const joueursListe = joueursEquipeA.slice(0, 5).map((joueur) => (
+  const joueursListe = joueursEquipeB.slice(0, 15).map((joueur) => (
     <li key={joueur.id_joueur}>{joueur.joueur_nom}</li>
   ));
 
@@ -131,14 +131,14 @@ function App() {
       {/* En-tête avec nom et score de l'équipe */}
       <div className="flex justify-between items-center mb-4">
         <div className="text-white text-xl">
-          {equipeBleu.map((equipe) => (
+          {equipeRouge.map((equipe) => (
             <h2 className="text-2xl font-bold mb-4" key={equipe.id_equipe}>
               Nom d'équipe : {equipe.equipe_nom}
             </h2>
           ))}
         </div>
         <div className="text-white text-xl">
-          {equipeBleu.map((equipe) => (
+          {equipeRouge.map((equipe) => (
             <h2 className="text-2xl font-bold mb-4" key={equipe.id_equipe}>
               Score : {equipe.equipe_score}
             </h2>
