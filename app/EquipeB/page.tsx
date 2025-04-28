@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // Import du router pour la redirection
+import { useRouter } from "next/navigation";
 
 // Interfaces pour les types
 interface Joueur {
@@ -19,8 +19,15 @@ interface Equipe {
   id_score: number;
 }
 
+interface Bug {
+  id_bug: number;
+  bug_nom: string;
+  bug_codeinitial: string;
+  bug_reponse: string;
+}
+
 function App() {
-  const router = useRouter(); // Initialisation du router
+  const router = useRouter();
 
   // États liés aux données de l'API
   const [joueursEquipeA, setJoueursEquipeA] = useState<Joueur[]>([]);
@@ -29,62 +36,12 @@ function App() {
   const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
   const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
   const [equipeClassement, setEquipeClassement] = useState<Equipe[]>([]);
+  const [bugs, setBugs] = useState<Bug[]>([]);
+  const [techsAvecErreurs, setTechsAvecErreurs] = useState<{ nom: string, erreur: string }[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Techno à tirer aléatoirement et erreurs associées
-  const techsAvecErreurs = [
-    {
-      nom: "PHP",
-      erreur: `<?php 
-$name = "Alice" 
-echo "Bonjour " . $name; 
-?>`,
-    },
-    {
-      nom: "JavaScript (ReactJS)",
-      erreur: `import React from 'react'; 
-   
-function Greeting(props) { 
-  return <h1>Hello {props.name</h1>; 
-} 
-   
-export default Greeting;`,
-    },
-    {
-      nom: "C++",
-      erreur: `int main() { 
-  cout << "Hello world!" << endl; 
-  return 0; 
-}`,
-    },
-    {
-      nom: "C#",
-      erreur: `class Program { 
-    public static void Main { 
-        Console.WriteLine("Salut !"); 
-    } 
-}`,
-    },
-    {
-      nom: "Mobile",
-      erreur: `import 'package:flutter/material.dart'; 
-   
-void main() { 
-  runApp(MyApp()) 
-} 
-   
-class MyApp extends StatelessWidget { 
-  Widget build(BuildContext context) { 
-    return MaterialApp( 
-      home: Scaffold(body: Text('Hello')), 
-    ); 
-  } 
-}`,
-    },
-  ];
-
-  // Rôles disponibles (modifiés selon ta demande)
+  // Rôles disponibles
   const rolesDisponibles: { [techno: string]: string } = {
     "PHP": "Expert PHP",
     "JavaScript (ReactJS)": "Expert React",
@@ -101,68 +58,71 @@ class MyApp extends StatelessWidget {
 
   // Fonction appelée lors du clic sur "Lancer la partie"
   const lancerPartie = () => {
-    // Tirage aléatoire de la technologie parmi celles disponibles
+    if (techsAvecErreurs.length === 0) return;
     const techIndex = Math.floor(Math.random() * techsAvecErreurs.length);
     const techObj = techsAvecErreurs[techIndex];
 
-    // Mise à jour de l'état avec la techno et l'erreur choisies aléatoirement
     setTechnoChoisie(techObj.nom);
     setCodeErreur(techObj.erreur);
   };
 
   // Fonction de sélection d'un rôle
   const choisirRole = (nouveauRole: string) => {
-    // Si le rôle est déjà pris par quelqu’un d’autre
     if (rolesPris[nouveauRole] && nouveauRole !== roleAttribue) {
       alert(`Le rôle "${nouveauRole}" est déjà pris.`);
       return;
     }
 
-    // Copie de l'état des rôles
     const nouveauxRolesPris = { ...rolesPris };
-
-    // Libérer l'ancien rôle
     if (roleAttribue) {
       nouveauxRolesPris[roleAttribue] = false;
     }
-
-    // Prendre le nouveau rôle
     nouveauxRolesPris[nouveauRole] = true;
 
-    // Mise à jour des états
     setRolesPris(nouveauxRolesPris);
     setRoleAttribue(nouveauRole);
   };
 
   // Chargement des données de l'API
   useEffect(() => {
-    fetch("http://localhost:8000/php/api.php")
-      .then((response) => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/php/api.php");
         if (!response.ok) {
-          throw new Error("Erreur lors du chargement des joueurs");
+          throw new Error("Erreur lors du chargement des données");
         }
-        return response.json();
-      })
-      .then((data) => {
+        const data = await response.json();
+
         setJoueursEquipeA(data.joueursEquipeA);
         setJoueursEquipeB(data.joueursEquipeB);
         setEquipes(data.equipes);
         setEquipeBleu(data.equipeBleu);
         setEquipeRouge(data.equipeRouge);
         setEquipeClassement(data.equipeClassement);
+        setBugs(data.bugs);
+
+        // Remplir techsAvecErreurs à partir des bugs
+        setTechsAvecErreurs(
+          data.bugs.map((bug: Bug) => ({
+            nom: bug.bug_nom,
+            erreur: bug.bug_codeinitial,
+          }))
+        );
+
         setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err: any) {
         setError(err.message);
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   if (loading) return <p>Chargement...</p>;
   if (error) return <p>Erreur : {error}</p>;
 
-  // Liste des joueurs équipe A (max 5)
-  const joueursListe = joueursEquipeA.slice(0, 5).map((joueur) => (
+  const joueursListe = joueursEquipeB.slice(0, 15).map((joueur) => (
     <li key={joueur.id_joueur}>{joueur.joueur_nom}</li>
   ));
 
@@ -171,14 +131,14 @@ class MyApp extends StatelessWidget {
       {/* En-tête avec nom et score de l'équipe */}
       <div className="flex justify-between items-center mb-4">
         <div className="text-white text-xl">
-          {equipeBleu.map((equipe) => (
+          {equipeRouge.map((equipe) => (
             <h2 className="text-2xl font-bold mb-4" key={equipe.id_equipe}>
               Nom d'équipe : {equipe.equipe_nom}
             </h2>
           ))}
         </div>
         <div className="text-white text-xl">
-          {equipeBleu.map((equipe) => (
+          {equipeRouge.map((equipe) => (
             <h2 className="text-2xl font-bold mb-4" key={equipe.id_equipe}>
               Score : {equipe.equipe_score}
             </h2>

@@ -1,83 +1,96 @@
 <?php
 
-// 🔥 Gérer les requêtes CORS preflight (OPTIONS)
+// Affiche toutes les erreurs PHP pour debug
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Gère les pré-requêtes CORS (OPTIONS)
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     header("Access-Control-Allow-Origin: *");
     header("Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT");
-    header("Access-Control-Allow-Headers: Content-Type");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
     http_response_code(200);
-    exit(0);
+    exit();
 }
 
-// Génération d'une connexion à la base de données
+// Headers CORS pour toutes les requêtes
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
+// Connexion base de données
 function getConnexion()
 {
     try {
         return new PDO("mysql:host=localhost;dbname=mnm;charset=utf8", "root", "");
-    } catch (Exception $e) {
-        die(json_encode(["error" => "Erreur de connexion : " . $e->getMessage()])); 
+    } catch (PDOException $e) {
+        die(json_encode(["error" => "Erreur de connexion : " . $e->getMessage()]));
     }
 }
 
-// Encoder les informations de la BDD au format json pour affichage avec react
-
+// Répondre en JSON
 function sendJSON($infos)
 {
-    header("Access-Control-Allow-Origin: *");
     header("Content-Type: application/json; charset=UTF-8");
     echo json_encode($infos, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 }
 
-// Connexion à la base de données
-
+// Connexion
 $pdo = getConnexion();
 
+// Router en fonction de la méthode HTTP
 switch ($_SERVER["REQUEST_METHOD"]) {
     case "GET":
-
-        // Récupération des joueurs
+        // Récupération des joueurs et de leur rôle
         $stmt1 = $pdo->prepare("SELECT * FROM joueurs_");
         $stmt1->execute();
         $joueurs = $stmt1->fetchAll(PDO::FETCH_ASSOC);
         $stmt1->closeCursor();
 
-        // Récupération des joueurs de l'équipe A
+        // Joueurs équipe A
         $stmt2 = $pdo->prepare("SELECT * FROM joueurs_ WHERE id_equipe = 1");
         $stmt2->execute();
         $joueursEquipeA = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         $stmt2->closeCursor();
 
-        // Récupération des joueurs de l'équipe B
+        // Joueurs équipe B
         $stmt3 = $pdo->prepare("SELECT * FROM joueurs_ WHERE id_equipe = 2");
         $stmt3->execute();
         $joueursEquipeB = $stmt3->fetchAll(PDO::FETCH_ASSOC);
         $stmt3->closeCursor();
 
-        // Récupération des équipes
+        // Toutes les équipes
         $stmt4 = $pdo->prepare("SELECT * FROM equipe");
         $stmt4->execute();
         $equipes = $stmt4->fetchAll(PDO::FETCH_ASSOC);
         $stmt4->closeCursor();
 
-        // Récupération de l'équipe A
+        // Détail équipe A
         $stmt5 = $pdo->prepare("SELECT * FROM equipe WHERE id_equipe = 1");
         $stmt5->execute();
         $equipeBleu = $stmt5->fetchAll(PDO::FETCH_ASSOC);
         $stmt5->closeCursor();
 
-        // Récupération de l'équipe B
+        // Détail équipe B
         $stmt6 = $pdo->prepare("SELECT * FROM equipe WHERE id_equipe = 2");
         $stmt6->execute();
         $equipeRouge = $stmt6->fetchAll(PDO::FETCH_ASSOC);
         $stmt6->closeCursor();
 
-        // Récupération des équipes en fonction du score ici du plus grand au plus petit pour le classement
+        // Classement des équipes (score décroissant)
         $stmt7 = $pdo->prepare("SELECT * FROM equipe ORDER BY equipe_score DESC");
         $stmt7->execute();
         $equipeClassement = $stmt7->fetchAll(PDO::FETCH_ASSOC);
         $stmt7->closeCursor();
 
+        // Bugs connus
+        $stmt8 = $pdo->prepare("SELECT * FROM bug");
+        $stmt8->execute();
+        $bugs = $stmt8->fetchAll(PDO::FETCH_ASSOC);
+        $stmt8->closeCursor();
+
+        // Renvoyer toutes les données
         sendJSON([
             "joueurs" => $joueurs,
             "joueursEquipeA" => $joueursEquipeA,
@@ -85,55 +98,62 @@ switch ($_SERVER["REQUEST_METHOD"]) {
             "equipes" => $equipes,
             "equipeBleu" => $equipeBleu,
             "equipeRouge" => $equipeRouge,
-            "equipeClassement" => $equipeClassement
+            "equipeClassement" => $equipeClassement,
+            "bugs" => $bugs
         ]);
         break;
 
     case "POST":
-        // 🔹 Ajout d’un joueur
+        // Ajouter un joueur
         $data = json_decode(file_get_contents("php://input"), true);
 
         $pseudo = $data["pseudo"] ?? null;
-        $equipe = $data["equipe"] ?? null;
+        $id_role = $data["id_role"] ?? null; // l'id du rôle (1 à 5 par ex)
+        $equipe = $data["equipe"] ?? null;   // left ou right
 
-        // On prend ce que le frontend envoie si c’est dispo, sinon fallback
-        $id_partie = $data["id_partie"] ?? 1;
-        $id_role = $data["id_role"] ?? 1;
+        if (!$id_role) {
+            http_response_code(400);
+            sendJSON(["error" => "Le rôle est obligatoire."]);
+            exit;
+        }
+
         $id_equipe = $data["id_equipe"] ?? (($equipe === "left") ? 1 : 2);
 
-        if ($pseudo && $id_partie && $id_role && $id_equipe) {
-            $stmt = $pdo->prepare("INSERT INTO joueurs_ (joueur_nom, id_partie, id_role, id_equipe) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$pseudo, $id_partie, $id_role, $id_equipe]);
-            sendJSON(["success" => true]);
+        if ($pseudo && $id_role && $id_equipe) {
+            $stmt = $pdo->prepare("INSERT INTO joueurs_ (joueur_nom, id_role, id_equipe) VALUES (?, ?, ?)");
+            $stmt->execute([$pseudo, $id_role, $id_equipe]);
+
+            sendJSON(["success" => true, "message" => "Joueur ajouté avec succès"]);
         } else {
             http_response_code(400);
-            sendJSON(["error" => "Données invalides"]);
+            sendJSON(["error" => "Données invalides pour ajouter un joueur"]);
         }
         break;
 
     case "PUT":
-        // 🔹 Changement d’équipe d'un joueur
+        // Changer un joueur d'équipe
         $data = json_decode(file_get_contents("php://input"), true);
 
         $pseudo = $data["pseudo"] ?? null;
         $newTeam = $data["newTeam"] ?? null;
 
         if ($pseudo && $newTeam) {
-            // On attribue l'équipe correspondante
-            $id_equipe = $newTeam === "left" ? 1 : 2;
+            $id_equipe = ($newTeam === "left") ? 1 : 2;
 
-            // Mise à jour de l'équipe dans la base de données
             $stmt = $pdo->prepare("UPDATE joueurs_ SET id_equipe = ? WHERE joueur_nom = ?");
             $stmt->execute([$id_equipe, $pseudo]);
-            
-            sendJSON(["success" => true]);
+
+            sendJSON(["success" => true, "message" => "Changement d'équipe effectué"]);
         } else {
             http_response_code(400);
-            sendJSON(["error" => "Données invalides"]);
+            sendJSON(["error" => "Données invalides pour changement d'équipe"]);
         }
         break;
 
     default:
         http_response_code(405);
         sendJSON(["error" => "Méthode non autorisée"]);
+        break;
 }
+
+?>
