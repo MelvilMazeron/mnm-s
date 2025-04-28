@@ -3,19 +3,44 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PagePHP() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-    const [codePhp, setCodePhp] = useState(
-        `<?php\n$name = "Alice"\necho "Bonjour " . $name;\n?>`
-    );
+    const [codePhp, setCodePhp] = useState('');
+    const [correctPhp, setCorrectPhp] = useState('');
     const [isVictoryPhp, setIsVictoryPhp] = useState(false);
 
-    const correctPhp = `<?php 
-    $name = "Alice"; 
-    echo "Bonjour " . $name; 
-    ?>`;
+    // Récupérer les données du serveur
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
+                const data = await response.json();
+
+                const bugPhp = data.bugs.find((bug: Bug) => bug.id_bug === 1);
+
+                if (bugPhp) {
+                    setCodePhp(bugPhp.bug_codeinitial);
+                    setCorrectPhp(bugPhp.bug_reponse);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du bug PHP:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -55,22 +80,32 @@ export default function PagePHP() {
         return () => clearTimeout(timer);
     }, [isVictoryPhp, router]);
 
+    // Nettoyage du code avant de le comparer
     const handleCodeChange = (newCode: string) => {
         setCodePhp(newCode);
-        const isCorrect = newCode === correctPhp;
+
+        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
+        const cleanedUserCode = newCode
+            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
+            .trim(); // Enlève les espaces au début et à la fin
+        const cleanedCorrectCode = correctPhp
+            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
+            .trim(); // Enlève les espaces au début et à la fin
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
+
         setIsVictoryPhp(isCorrect);
-        
+
         if (isCorrect && socket) {
             setScore(prev => prev + 1);
             socket.emit('victory', { language: 'php' });
         }
     };
 
+    // Affichage de la correction du code
     const CorrectionDisplay = () => (
-        <pre className="text-white">
-            {`<?php\n$name = "Alice"`}
-            <span className="text-red-500">;</span>
-            {`\necho "Bonjour " . $name;\n?>`}
+        <pre className="text-white whitespace-pre-wrap">
+            {correctPhp}
         </pre>
     );
 

@@ -3,20 +3,44 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PageJSX() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-    const [codeJsx, setCodeJsx] = useState(
-        `import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name</h1>;\n}\nexport default Greeting;`
-    );
+    const [codeJsx, setCodeJsx] = useState('');
+    const [correctJsx, setCorrectJsx] = useState('');
     const [isVictoryJsx, setIsVictoryJsx] = useState(false);
 
-    const correctJsx = `import React from 'react'; 
-    function Greeting(props) { 
-        return <h1>Hello {props.name}</h1>; 
-    } 
-    export default Greeting;`;
+    // Récupérer les données du serveur
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
+                const data = await response.json();
+
+                const bugJsx = data.bugs.find((bug: Bug) => bug.id_bug === 2);
+
+                if (bugJsx) {
+                    setCodeJsx(bugJsx.bug_codeinitial);
+                    setCorrectJsx(bugJsx.bug_reponse);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du bug JSX:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -56,22 +80,32 @@ export default function PageJSX() {
         return () => clearTimeout(timer);
     }, [isVictoryJsx, router]);
 
+    // Nettoyage du code avant de le comparer
     const handleCodeChange = (newCode: string) => {
         setCodeJsx(newCode);
-        const isCorrect = newCode === correctJsx;
+
+        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
+        const cleanedUserCode = newCode
+            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
+            .trim(); // Enlève les espaces au début et à la fin
+        const cleanedCorrectCode = correctJsx
+            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
+            .trim(); // Enlève les espaces au début et à la fin
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
+
         setIsVictoryJsx(isCorrect);
-        
+
         if (isCorrect && socket) {
             setScore(prev => prev + 1);
             socket.emit('victory', { language: 'jsx' });
         }
     };
 
+    // Affichage de la correction du code
     const CorrectionDisplay = () => (
-        <pre className="text-white">
-            {`import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name`}
-            <span className="text-red-500">{`}`}</span>
-            {`</h1>;\n}\nexport default Greeting;`}
+        <pre className="text-white whitespace-pre-wrap">
+            {correctJsx}
         </pre>
     );
 

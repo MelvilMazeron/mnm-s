@@ -90,6 +90,36 @@ switch ($_SERVER["REQUEST_METHOD"]) {
         $bugs = $stmt8->fetchAll(PDO::FETCH_ASSOC);
         $stmt8->closeCursor();
 
+        // Récupère les informations du bug à l'id 1
+        $stmt9 = $pdo->prepare("SELECT * FROM bug WHERE id_bug = 1");
+        $stmt9->execute();
+        $php = $stmt9->fetchAll(PDO::FETCH_ASSOC);
+        $stmt9->closeCursor();
+
+        // Récupère les informations du bug à l'id 2
+        $stmt10 = $pdo->prepare("SELECT * FROM bug WHERE id_bug = 2");
+        $stmt10->execute();
+        $js = $stmt10->fetchAll(PDO::FETCH_ASSOC);
+        $stmt10->closeCursor();
+
+        // Récupère les informations du bug à l'id 3
+        $stmt11 = $pdo->prepare("SELECT * FROM bug WHERE id_bug = 3");
+        $stmt11->execute();
+        $cplusplus = $stmt11->fetchAll(PDO::FETCH_ASSOC);
+        $stmt11->closeCursor();
+
+        // Récupère les informations du bug à l'id 4
+        $stmt12 = $pdo->prepare("SELECT * FROM bug WHERE id_bug = 4");
+        $stmt12->execute();
+        $csharp = $stmt12->fetchAll(PDO::FETCH_ASSOC);
+        $stmt12->closeCursor();
+
+        // Récupère les informations du bug à l'id 5
+        $stmt13 = $pdo->prepare("SELECT * FROM bug WHERE id_bug = 5");
+        $stmt13->execute();
+        $mobile = $stmt13->fetchAll(PDO::FETCH_ASSOC);
+        $stmt13->closeCursor();
+
         // Renvoyer toutes les données
         sendJSON([
             "joueurs" => $joueurs,
@@ -99,7 +129,12 @@ switch ($_SERVER["REQUEST_METHOD"]) {
             "equipeBleu" => $equipeBleu,
             "equipeRouge" => $equipeRouge,
             "equipeClassement" => $equipeClassement,
-            "bugs" => $bugs
+            "bugs" => $bugs,
+            "php" => $php,
+            "js" => $js,
+            "cplusplus" => $cplusplus,
+            "csharp" => $csharp,
+            "mobile" => $mobile
         ]);
         break;
 

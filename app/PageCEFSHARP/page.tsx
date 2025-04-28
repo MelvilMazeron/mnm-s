@@ -3,24 +3,43 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PageCEFSHARP() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-    const [codeCefsharp, setCodeCefsharp] = useState(
-        `class Program { 
-            public static void Main { 
-                Console.WriteLine("Salut !"); 
-            } 
-        }`
-    );
+    const [codeCefsharp, setCodeCefsharp] = useState('');
+    const [correctCefsharp, setCorrectCefsharp] = useState('');
     const [isVictoryCefsharp, setIsVictoryCefsharp] = useState(false);
 
-    const correctCefsharp = `class Program { 
-        public static void Main() { 
-            Console.WriteLine("Salut !"); 
-        } 
-    }`;
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
+                const data = await response.json();
+
+                const bugCsharp = data.bugs.find((bug: Bug) => bug.id_bug === 4);
+
+                if (bugCsharp) {
+                    setCodeCefsharp(bugCsharp.bug_codeinitial);
+                    setCorrectCefsharp(bugCsharp.bug_reponse);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du bug C#:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -44,6 +63,7 @@ export default function PageCEFSHARP() {
         };
 
         socket.on('victory', handleVictory);
+
         return () => {
             socket.off('victory', handleVictory);
         };
@@ -62,9 +82,19 @@ export default function PageCEFSHARP() {
 
     const handleCodeChange = (newCode: string) => {
         setCodeCefsharp(newCode);
-        const isCorrect = newCode === correctCefsharp;
+
+        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
+        const cleanedUserCode = newCode
+            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
+            .trim(); // Enlève les espaces au début et à la fin
+        const cleanedCorrectCode = correctCefsharp
+            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
+            .trim(); // Enlève les espaces au début et à la fin
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
+
         setIsVictoryCefsharp(isCorrect);
-        
+
         if (isCorrect && socket) {
             setScore(prev => prev + 1);
             socket.emit('victory', { language: 'csharp' });
@@ -72,10 +102,8 @@ export default function PageCEFSHARP() {
     };
 
     const CorrectionDisplay = () => (
-        <pre className="text-white">
-            {`class Program {\n    public static void Main`}
-            <span className="text-red-500">{`()`}</span>
-            {` {\n        Console.WriteLine("Salut !");\n    }\n}`}
+        <pre className="text-white whitespace-pre-wrap">
+            {correctCefsharp}
         </pre>
     );
 

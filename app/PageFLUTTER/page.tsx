@@ -3,38 +3,44 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PageFLUTTER() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
-    const [codeFlutter, setCodeFlutter] = useState(
-        `import 'package:flutter/material.dart'; 
-        void main() { 
-            runApp(MyApp())
-        } 
-        class MyApp extends StatelessWidget { 
-            @override
-            Widget build(BuildContext context) { 
-                return MaterialApp( 
-                    home: Scaffold(body: Text('Hello')), 
-                ); 
-            } 
-        }`
-    );
+    const [codeFlutter, setCodeFlutter] = useState('');
+    const [correctFlutter, setCorrectFlutter] = useState('');
     const [isVictoryFlutter, setIsVictoryFlutter] = useState(false);
 
-    const correctFlutter = `import 'package:flutter/material.dart'; 
-    void main() { 
-        runApp(MyApp()); 
-    } 
-    class MyApp extends StatelessWidget { 
-        @override
-        Widget build(BuildContext context) { 
-            return MaterialApp( 
-                home: Scaffold(body: Text('Hello')), 
-            ); 
-        } 
-    }`;
+    // Récupérer les données du serveur
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
+                const data = await response.json();
+
+                const bugFlutter = data.bugs.find((bug: Bug) => bug.id_bug === 5);
+
+                if (bugFlutter) {
+                    setCodeFlutter(bugFlutter.bug_codeinitial);
+                    setCorrectFlutter(bugFlutter.bug_reponse);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du bug Flutter:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -75,22 +81,32 @@ export default function PageFLUTTER() {
         return () => clearTimeout(timer);
     }, [isVictoryFlutter, router]);
 
+    // Nettoyage du code avant de le comparer
     const handleCodeChange = (newCode: string) => {
         setCodeFlutter(newCode);
-        const isCorrect = newCode === correctFlutter;
+
+        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
+        const cleanedUserCode = newCode
+            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
+            .trim(); // Enlève les espaces au début et à la fin
+        const cleanedCorrectCode = correctFlutter
+            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
+            .trim(); // Enlève les espaces au début et à la fin
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
+
         setIsVictoryFlutter(isCorrect);
-        
+
         if (isCorrect && socket) {
             setScore(prev => prev + 1);
             socket.emit('victory', { language: 'flutter' });
         }
     };
 
+    // Affichage de la correction du code
     const CorrectionDisplay = () => (
-        <pre>
-            {`import 'package:flutter/material.dart';\nvoid main() {\n    runApp(MyApp())`}
-            <span className="text-red-500">;</span>
-            {`\n}\nclass MyApp extends StatelessWidget {\n    @override\n    Widget build(BuildContext context) {\n        return MaterialApp(\n            home: Scaffold(body: Text('Hello')),\n        );\n    }\n}`}
+        <pre className="text-white whitespace-pre-wrap">
+            {correctFlutter}
         </pre>
     );
 
