@@ -10,111 +10,95 @@ interface Equipe {
   id_score: number;
 }
 
+interface Bug {
+  id_bug: number;
+  bug_nom: string;
+  bug_codeinitial: string;
+  bug_reponse: string;
+}
+
 export default function PageJSX() {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
-  
-  // Définir l'équipe par défaut à bleu
-  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const teamParam = searchParams.get("team");
 
-  useEffect(() => {
-    if (teamParam === "rouge") {
-      setCurrentTeamId(2);
-    } else if (teamParam === "bleu") {
-      setCurrentTeamId(1);
-    }
-  }, [teamParam]);
-
+  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // bleu par défaut
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [codeJsx, setCodeJsx] = useState(
-    `import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name</h1>;\n}\nexport default Greeting;`
-  );
+  const [codeJsx, setCodeJsx] = useState('');
+  const [correctJsx, setCorrectJsx] = useState('');
   const [isVictoryJsx, setIsVictoryJsx] = useState(false);
-
   const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
   const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-  const correctJsx = `import React from 'react'; 
-function Greeting(props) { 
-    return <h1>Hello {props.name}</h1>; 
-} 
-export default Greeting;`;
+  useEffect(() => {
+    if (teamParam === "rouge") setCurrentTeamId(2);
+    else if (teamParam === "bleu") setCurrentTeamId(1);
+  }, [teamParam]);
 
   useEffect(() => {
-    const fetchEquipes = async () => {
+    const fetchData = async () => {
       try {
         const response = await fetch("http://localhost:8000/php/api.php");
         const data = await response.json();
         setEquipeBleu(data.equipeBleu);
         setEquipeRouge(data.equipeRouge);
+
+        const bugJsx = data.bugs.find((bug: Bug) => bug.id_bug === 2);
+        if (bugJsx) {
+          setCodeJsx(bugJsx.bug_codeinitial);
+          setCorrectJsx(bugJsx.bug_reponse);
+        }
       } catch (error) {
-        console.error("Erreur lors du chargement des équipes:", error);
+        console.error("Erreur lors du chargement des données :", error);
       }
     };
 
-    fetchEquipes();
+    fetchData();
   }, []);
 
-  // Initialisation du socket
   useEffect(() => {
-    const socketInstance = io('http://localhost:3001');
+    const socketInstance = io("http://localhost:3001");
     setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    return () => socketInstance.disconnect();
   }, []);
 
-  // Redirection après victoire
   const handleCodeChange = async (newCode: string) => {
     setCodeJsx(newCode);
 
-    const isCorrect = newCode === correctJsx;
-    if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
+    const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+    const cleanedCorrectCode = correctJsx.replace(/\s+/g, ' ').trim();
+    const isCorrect = cleanedUserCode === cleanedCorrectCode;
+
+    if (!isCorrect) return;
 
     setIsVictoryJsx(true);
-
-    const idEquipeGagnante = currentTeamId;
-    console.log("Équipe gagnante déterminée :", idEquipeGagnante);
 
     try {
       const response = await fetch("http://localhost:8000/php/update_score.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_equipe: currentTeamId }),
       });
 
       const data = await response.json();
-      console.log("Réponse API update_score :", data);
-
       if (data.success && socket) {
-        socket.emit('victory', { 
-          language: 'jsx',
-          winningTeam: idEquipeGagnante 
+        socket.emit("victory", {
+          language: "jsx",
+          winningTeam: currentTeamId,
         });
 
-        if (idEquipeGagnante === 1) {
-          setEquipeBleu(prevState => 
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
-            }))
+        if (currentTeamId === 1) {
+          setEquipeBleu(prev =>
+            prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 }))
           );
-        } else if (idEquipeGagnante === 2) {
-          setEquipeRouge(prevState => 
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1
-            }))
+        } else {
+          setEquipeRouge(prev =>
+            prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 }))
           );
         }
       }
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du score:", error);
+      console.error("Erreur lors de la mise à jour du score :", error);
     }
   };
 
@@ -129,10 +113,8 @@ export default Greeting;`;
   }, [isVictoryJsx, router, currentTeamId]);
 
   const CorrectionDisplay = () => (
-    <pre className="text-white">
-      {`import React from 'react';\nfunction Greeting(props) {\n    return <h1>Hello {props.name`}
-      <span className="text-red-500">{`}`}</span>
-      {`</h1>;\n}\nexport default Greeting;`}
+    <pre className="text-white whitespace-pre-wrap">
+      {correctJsx}
     </pre>
   );
 
@@ -149,14 +131,12 @@ export default Greeting;`;
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
       <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
-
       <div className="flex flex-col items-center w-full max-w-2xl">
-        <img 
-          src="/images/logoJSX.png" 
-          alt="JSX Logo" 
+        <img
+          src="/images/logoJSX.png"
+          alt="JSX Logo"
           className="w-24 h-24 mb-6 object-contain"
         />
-        
         <textarea
           className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
           value={codeJsx}

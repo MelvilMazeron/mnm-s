@@ -10,123 +10,89 @@ interface Equipe {
   id_score: number;
 }
 
+interface Bug {
+  id_bug: number;
+  bug_nom: string;
+  bug_codeinitial: string;
+  bug_reponse: string;
+}
+
 export default function PageFLUTTER() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
 
-  // Définir l'équipe par défaut à bleu
-  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
-
-  useEffect(() => {
-    if (teamParam === "rouge") {
-      setCurrentTeamId(2);
-    } else if (teamParam === "bleu") {
-      setCurrentTeamId(1);
-    }
-  }, [teamParam]);
-
+  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // bleu par défaut
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [codeFlutter, setCodeFlutter] = useState(
-    `import 'package:flutter/material.dart'; 
-    void main() { 
-        runApp(MyApp());
-    } 
-    class MyApp extends StatelessWidget { 
-        @override
-        Widget build(BuildContext context) { 
-            return MaterialApp( 
-                home: Scaffold(body: Text('Hello')), 
-            ); 
-        } 
-    }`
-  );
+  const [codeFlutter, setCodeFlutter] = useState('');
+  const [correctFlutter, setCorrectFlutter] = useState('');
   const [isVictoryFlutter, setIsVictoryFlutter] = useState(false);
-
   const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
   const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-  const correctFlutter = `import 'package:flutter/material.dart'; 
-    void main() { 
-        runApp(MyApp()); 
-    } 
-    class MyApp extends StatelessWidget { 
-        @override
-        Widget build(BuildContext context) { 
-            return MaterialApp( 
-                home: Scaffold(body: Text('Hello')), 
-            ); 
-        } 
-    };`;
+  useEffect(() => {
+    if (teamParam === "rouge") setCurrentTeamId(2);
+    else if (teamParam === "bleu") setCurrentTeamId(1);
+  }, [teamParam]);
 
   useEffect(() => {
-    const fetchEquipes = async () => {
+    const fetchData = async () => {
       try {
         const response = await fetch("http://localhost:8000/php/api.php");
         const data = await response.json();
+        const bugFlutter = data.bugs.find((bug: Bug) => bug.id_bug === 5);
+        if (bugFlutter) {
+          setCodeFlutter(bugFlutter.bug_codeinitial);
+          setCorrectFlutter(bugFlutter.bug_reponse);
+        }
         setEquipeBleu(data.equipeBleu);
         setEquipeRouge(data.equipeRouge);
       } catch (error) {
-        console.error("Erreur lors du chargement des équipes:", error);
+        console.error("Erreur lors du chargement des données:", error);
       }
     };
 
-    fetchEquipes();
+    fetchData();
   }, []);
 
-  // Initialisation du socket
   useEffect(() => {
-    const socketInstance = io('http://localhost:3001');
+    const socketInstance = io("http://localhost:3001");
     setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    return () => socketInstance.disconnect();
   }, []);
 
   const handleCodeChange = async (newCode: string) => {
     setCodeFlutter(newCode);
 
-    const isCorrect = newCode === correctFlutter;
-    if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
+    const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+    const cleanedCorrectCode = correctFlutter.replace(/\s+/g, ' ').trim();
+    const isCorrect = cleanedUserCode === cleanedCorrectCode;
+
+    if (!isCorrect) return;
 
     setIsVictoryFlutter(true);
-
-    const idEquipeGagnante = currentTeamId;
-    console.log("Équipe gagnante déterminée :", idEquipeGagnante);
 
     try {
       const response = await fetch("http://localhost:8000/php/update_score.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_equipe: currentTeamId }),
       });
-
       const data = await response.json();
-      console.log("Réponse API update_score :", data);
 
       if (data.success && socket) {
-        socket.emit('victory', { 
-          language: 'flutter',
-          winningTeam: idEquipeGagnante 
+        socket.emit("victory", {
+          language: "flutter",
+          winningTeam: currentTeamId,
         });
 
-        if (idEquipeGagnante === 1) {
-          setEquipeBleu(prevState => 
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
-            }))
+        if (currentTeamId === 1) {
+          setEquipeBleu(prev =>
+            prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 }))
           );
-        } else if (idEquipeGagnante === 2) {
-          setEquipeRouge(prevState => 
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1
-            }))
+        } else {
+          setEquipeRouge(prev =>
+            prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 }))
           );
         }
       }
@@ -137,19 +103,15 @@ export default function PageFLUTTER() {
 
   useEffect(() => {
     if (!isVictoryFlutter) return;
-
     const timer = setTimeout(() => {
-        router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
+      router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
     }, 5000);
-
     return () => clearTimeout(timer);
   }, [isVictoryFlutter, router, currentTeamId]);
 
   const CorrectionDisplay = () => (
-    <pre className="text-white">
-      {`import 'package:flutter/material.dart';\nvoid main() {\n    runApp(MyApp())`}
-      <span className="text-red-500">;</span>
-      {`\n}\nclass MyApp extends StatelessWidget {\n    @override\n    Widget build(BuildContext context) {\n        return MaterialApp(\n            home: Scaffold(body: Text('Hello')),\n        );\n    }\n}`}
+    <pre className="text-white whitespace-pre-wrap">
+      {correctFlutter}
     </pre>
   );
 
@@ -166,14 +128,12 @@ export default function PageFLUTTER() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
       <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
-
       <div className="flex flex-col items-center w-full max-w-2xl">
-        <img 
-          src="/images/logoFLUTTER.png" 
-          alt="Flutter Logo" 
+        <img
+          src="/images/logoFLUTTER.png"
+          alt="Flutter Logo"
           className="w-24 h-24 mb-6 object-contain"
         />
-
         <textarea
           className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
           value={codeFlutter}

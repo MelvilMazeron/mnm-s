@@ -3,6 +3,13 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 interface Equipe {
     id_equipe: number;
     equipe_nom: string;
@@ -10,46 +17,51 @@ interface Equipe {
     id_score: number;
 }
 
-export default function PageCPlusPlus() {
+export default function PageCPLUSPLUS() {
     const router = useRouter();
-    const pathname = usePathname();
     const searchParams = useSearchParams();
-    const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
+    const teamParam = searchParams.get("team");
 
-    // Définir l'équipe par défaut à bleu
-    const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+    const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1);
 
     useEffect(() => {
-        if (teamParam === "rouge") {
-        setCurrentTeamId(2);
-        } else if (teamParam === "bleu") {
-        setCurrentTeamId(1);
-        }
+        if (teamParam === "rouge") setCurrentTeamId(2);
+        else if (teamParam === "bleu") setCurrentTeamId(1);
     }, [teamParam]);
 
     const [socket, setSocket] = useState<Socket | null>(null);
-    const [codeCPlusPlus, setCodeCPlusPlus] = useState(
-        `#include <iostream> 
-        using namespace std;
-        
-        int main() { 
-            cout << "Hello world! << endl; 
-            return 0; 
-        }`
-    );
+    const [codeCPlusPlus, setCodeCPlusPlus] = useState('');
+    const [correctCplusplus, setCorrectCplusplus] = useState('');
     const [isVictoryCPlusPlus, setIsVictoryCPlusPlus] = useState(false);
-
     const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
     const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-    const correctCplusplus = `#include <iostream> 
-    using namespace std;
-    
-    int main() { 
-        cout << "Hello world!" << endl; 
-        return 0; 
-    }`;
+    // Socket.io init
+    useEffect(() => {
+        const socketInstance = io('http://localhost:3001');
+        setSocket(socketInstance);
+        return () => socketInstance.disconnect();
+    }, []);
 
+    // Récupérer les données du bug
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                const data = await response.json();
+                const bugCplusplus = data.bugs.find((bug: Bug) => bug.id_bug === 3);
+                if (bugCplusplus) {
+                    setCodeCPlusPlus(bugCplusplus.bug_codeinitial);
+                    setCorrectCplusplus(bugCplusplus.bug_reponse);
+                }
+            } catch (error) {
+                console.error("Erreur chargement du bug C++:", error);
+            }
+        };
+        fetchData();
+    }, []);
+
+    // Récupérer les équipes
     useEffect(() => {
         const fetchEquipes = async () => {
             try {
@@ -58,62 +70,47 @@ export default function PageCPlusPlus() {
                 setEquipeBleu(data.equipeBleu);
                 setEquipeRouge(data.equipeRouge);
             } catch (error) {
-                console.error("Erreur lors du chargement des équipes:", error);
+                console.error("Erreur chargement des équipes:", error);
             }
         };
-
         fetchEquipes();
-    }, []);
-
-    // Initialisation du socket
-    useEffect(() => {
-        const socketInstance = io('http://localhost:3001');
-        setSocket(socketInstance);
-
-        return () => {
-            socketInstance.disconnect();
-        };
     }, []);
 
     const handleCodeChange = async (newCode: string) => {
         setCodeCPlusPlus(newCode);
-    
-        const isCorrect = newCode === correctCplusplus;
-        if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
-    
+
+        const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+        const cleanedCorrectCode = correctCplusplus.replace(/\s+/g, ' ').trim();
+
+        const isCorrect = cleanedUserCode === cleanedCorrectCode;
+        if (!isCorrect) return;
+
         setIsVictoryCPlusPlus(true);
-    
-        const idEquipeGagnante = currentTeamId;
-        console.log("Équipe gagnante déterminée :", idEquipeGagnante);
-    
+
         try {
             const response = await fetch("http://localhost:8000/php/update_score.php", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_equipe: currentTeamId }),
             });
-    
+
             const data = await response.json();
-            console.log("Réponse API update_score :", data);
-    
             if (data.success && socket) {
-                socket.emit('victory', { 
+                socket.emit('victory', {
                     language: 'c++',
-                    winningTeam: idEquipeGagnante 
+                    winningTeam: currentTeamId,
                 });
-    
-                if (idEquipeGagnante === 1) {
-                    setEquipeBleu(prevState => 
-                        prevState.map(equipe => ({
+
+                if (currentTeamId === 1) {
+                    setEquipeBleu(prev =>
+                        prev.map(equipe => ({
                             ...equipe,
-                            equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
+                            equipe_score: equipe.equipe_score + 1
                         }))
                     );
-                } else if (idEquipeGagnante === 2) {
-                    setEquipeRouge(prevState => 
-                        prevState.map(equipe => ({
+                } else {
+                    setEquipeRouge(prev =>
+                        prev.map(equipe => ({
                             ...equipe,
                             equipe_score: equipe.equipe_score + 1
                         }))
@@ -121,39 +118,28 @@ export default function PageCPlusPlus() {
                 }
             }
         } catch (error) {
-            console.error("Erreur lors de la mise à jour du score:", error);
+            console.error("Erreur update score:", error);
         }
     };
 
     useEffect(() => {
         if (!isVictoryCPlusPlus) return;
-    
         const timer = setTimeout(() => {
             router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
-          }, 5000);
-      
+        }, 5000);
         return () => clearTimeout(timer);
     }, [isVictoryCPlusPlus, router, currentTeamId]);
 
-    const CPlusPlusCorrection = () => {
-        return (
-            <pre>
-                {`#include <iostream> 
-    using namespace std;
-    
-    int main() { 
-        cout << "Hello world!"`}
-                <span className="text-red-500">"</span> {`<< endl; 
-        return 0; 
-    }`}
-            </pre>
-        );
-    };
+    const CPlusPlusCorrection = () => (
+        <pre className="text-white whitespace-pre-wrap">
+            {correctCplusplus}
+        </pre>
+    );
 
     if (isVictoryCPlusPlus) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-black text-white">
-                <div className="border-2 border-green-500 rounded-lg p-4 bg-gray-800">
+                <div className="border-2 border-green-500 rounded-lg p-6 bg-gray-800 max-w-2xl">
                     {CPlusPlusCorrection()}
                 </div>
             </div>
@@ -163,14 +149,12 @@ export default function PageCPlusPlus() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
             <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
-            
             <div className="flex flex-col items-center w-full max-w-2xl">
-                <img 
-                    src="/images/logoC++.png" 
-                    alt="C++ Logo" 
+                <img
+                    src="/images/logoC++.png"
+                    alt="C++ Logo"
                     className="w-24 h-24 mb-6 object-contain"
                 />
-                
                 <textarea
                     className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
                     value={codeCPlusPlus}

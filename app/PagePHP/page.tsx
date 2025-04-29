@@ -10,104 +10,101 @@ interface Equipe {
   id_score: number;
 }
 
+interface Bug {
+  id_bug: number;
+  bug_nom: string;
+  bug_codeinitial: string;
+  bug_reponse: string;
+}
+
 export default function PagePHP() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
-  
-  // Définir l'équipe par défaut à bleu
-  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+  const teamParam = searchParams.get("team");
 
-  useEffect(() => {
-    if (teamParam === "rouge") {
-      setCurrentTeamId(2);
-    } else if (teamParam === "bleu") {
-      setCurrentTeamId(1);
-    }
-  }, [teamParam]);
-
+  const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [codePhp, setCodePhp] = useState(
-    `<?php\n$name = "Alice"\necho "Bonjour " . $name;\n?>`
-  );
+  const [codePhp, setCodePhp] = useState('');
+  const [correctPhp, setCorrectPhp] = useState('');
   const [isVictoryPhp, setIsVictoryPhp] = useState(false);
-
   const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
   const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-  const correctPhp = `<?php 
-    $name = "Alice"; 
-    echo "Bonjour " . $name; 
-  ?>`;
-
   useEffect(() => {
-    const fetchEquipes = async () => {
+    if (teamParam === "rouge") setCurrentTeamId(2);
+    else if (teamParam === "bleu") setCurrentTeamId(1);
+  }, [teamParam]);
+
+  // Récupération des équipes et du bug
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         const response = await fetch("http://localhost:8000/php/api.php");
         const data = await response.json();
+
         setEquipeBleu(data.equipeBleu);
         setEquipeRouge(data.equipeRouge);
+
+        const bugPhp = data.bugs.find((bug: Bug) => bug.id_bug === 1);
+        if (bugPhp) {
+          setCodePhp(bugPhp.bug_codeinitial);
+          setCorrectPhp(bugPhp.bug_reponse);
+        }
       } catch (error) {
-        console.error("Erreur lors du chargement des équipes:", error);
+        console.error("Erreur lors du chargement des données:", error);
       }
     };
 
-    fetchEquipes();
+    fetchData();
   }, []);
 
+  // Initialisation du socket
   useEffect(() => {
     const socketInstance = io('http://localhost:3001');
     setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    return () => socketInstance.disconnect();
   }, []);
+
+  // Gestion des événements socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleVictory = (data: { language: string }) => {
+      if (data.language === 'php') setIsVictoryPhp(true);
+    };
+    socket.on('victory', handleVictory);
+    return () => socket.off('victory', handleVictory);
+  }, [socket]);
 
   const handleCodeChange = async (newCode: string) => {
     setCodePhp(newCode);
 
-    const isCorrect = newCode === correctPhp;
+    const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+    const cleanedCorrectCode = correctPhp.replace(/\s+/g, ' ').trim();
+
+    const isCorrect = cleanedUserCode === cleanedCorrectCode;
     if (!isCorrect) return;
 
     setIsVictoryPhp(true);
 
-    const idEquipeGagnante = currentTeamId;
-    console.log("Équipe gagnante déterminée :", idEquipeGagnante);
-
     try {
       const response = await fetch("http://localhost:8000/php/update_score.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_equipe: currentTeamId }),
       });
 
       const data = await response.json();
-      console.log("Réponse API update_score :", data);
-
       if (data.success && socket) {
         socket.emit('victory', {
           language: 'php',
-          winningTeam: idEquipeGagnante
+          winningTeam: currentTeamId
         });
 
-        if (idEquipeGagnante === 1) {
-          setEquipeBleu(prevState =>
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1
-            }))
-          );
-        } else if (idEquipeGagnante === 2) {
-          setEquipeRouge(prevState =>
-            prevState.map(equipe => ({
-              ...equipe,
-              equipe_score: equipe.equipe_score + 1
-            }))
-          );
+        if (currentTeamId === 1) {
+          setEquipeBleu(prev => prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 })));
+        } else {
+          setEquipeRouge(prev => prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 })));
         }
       }
     } catch (error) {
@@ -117,20 +114,14 @@ export default function PagePHP() {
 
   useEffect(() => {
     if (!isVictoryPhp) return;
-
     const timer = setTimeout(() => {
       router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
     }, 5000);
-
     return () => clearTimeout(timer);
   }, [isVictoryPhp, router, currentTeamId]);
 
   const CorrectionDisplay = () => (
-    <pre className="text-white">
-      {`<?php\n$name = "Alice"`}
-      <span className="text-red-500">;</span>
-      {`\necho "Bonjour " . $name;\n?>`}
-    </pre>
+    <pre className="text-white whitespace-pre-wrap">{correctPhp}</pre>
   );
 
   if (isVictoryPhp) {

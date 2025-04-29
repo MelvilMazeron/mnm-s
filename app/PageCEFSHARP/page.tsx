@@ -10,6 +10,13 @@ interface Equipe {
     id_score: number;
 }
 
+interface Bug {
+    id_bug: number;
+    bug_nom: string;
+    bug_codeinitial: string;
+    bug_reponse: string;
+}
+
 export default function PageCEFSHARP() {
     const router = useRouter();
     const pathname = usePathname();
@@ -21,44 +28,44 @@ export default function PageCEFSHARP() {
 
     useEffect(() => {
         if (teamParam === "rouge") {
-        setCurrentTeamId(2);
+            setCurrentTeamId(2);
         } else if (teamParam === "bleu") {
-        setCurrentTeamId(1);
+            setCurrentTeamId(1);
         }
     }, [teamParam]);
 
     const [socket, setSocket] = useState<Socket | null>(null);
-    const [codeCefsharp, setCodeCefsharp] = useState(
-        `class Program { 
-            public static void Main { 
-                Console.WriteLine("Salut !"); 
-            } 
-        }`
-    );
+    const [score, setScore] = useState(0);
+    const [codeCefsharp, setCodeCefsharp] = useState('');
+    const [correctCefsharp, setCorrectCefsharp] = useState('');
     const [isVictoryCefsharp, setIsVictoryCefsharp] = useState(false);
-
     const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
     const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-    const correctCefsharp = `class Program { 
-        public static void Main() { 
-            Console.WriteLine("Salut !"); 
-        } 
-    }`;
-
+    // Récupérer les données des équipes et des bugs (en particulier le bug C#)
     useEffect(() => {
-        const fetchEquipes = async () => {
+        const fetchData = async () => {
             try {
                 const response = await fetch("http://localhost:8000/php/api.php");
+                if (!response.ok) {
+                    throw new Error("Erreur lors du chargement des données");
+                }
                 const data = await response.json();
+
+                const bugCsharp = data.bugs.find((bug: Bug) => bug.id_bug === 4);
+                if (bugCsharp) {
+                    setCodeCefsharp(bugCsharp.bug_codeinitial);
+                    setCorrectCefsharp(bugCsharp.bug_reponse);
+                }
+
                 setEquipeBleu(data.equipeBleu);
                 setEquipeRouge(data.equipeRouge);
             } catch (error) {
-                console.error("Erreur lors du chargement des équipes:", error);
+                console.error('Erreur lors du chargement des données C#:', error);
             }
         };
 
-        fetchEquipes();
+        fetchData();
     }, []);
 
     // Initialisation du socket
@@ -71,74 +78,42 @@ export default function PageCEFSHARP() {
         };
     }, []);
 
-    const handleCodeChange = async (newCode: string) => {
+    // Fonction de gestion du changement de code
+    const handleCodeChange = (newCode: string) => {
         setCodeCefsharp(newCode);
-    
-        const isCorrect = newCode === correctCefsharp;
-        if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
-    
-        setIsVictoryCefsharp(true);
-    
-        const idEquipeGagnante = currentTeamId;
-        console.log("Équipe gagnante déterminée :", idEquipeGagnante);
-    
-        try {
-            const response = await fetch("http://localhost:8000/php/update_score.php", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ id_equipe: idEquipeGagnante }),
-            });
-    
-            const data = await response.json();
-            console.log("Réponse API update_score :", data);
-    
-            if (data.success && socket) {
-                socket.emit('victory', { 
-                    language: 'csharp',
-                    winningTeam: idEquipeGagnante 
-                });
-    
-                if (idEquipeGagnante === 1) {
-                    setEquipeBleu(prevState => 
-                        prevState.map(equipe => ({
-                            ...equipe,
-                            equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
-                        }))
-                    );
-                } else if (idEquipeGagnante === 2) {
-                    setEquipeRouge(prevState => 
-                        prevState.map(equipe => ({
-                            ...equipe,
-                            equipe_score: equipe.equipe_score + 1
-                        }))
-                    );
-                }
-            }
-        } catch (error) {
-            console.error("Erreur lors de la mise à jour du score:", error);
+
+        // Nettoyage des espaces et des retours à la ligne avant comparaison
+        const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+        const cleanedCorrectCode = correctCefsharp.replace(/\s+/g, ' ').trim();
+
+        // Comparaison du code nettoyé
+        const isCorrect = cleanedUserCode === cleanedCorrectCode;
+        setIsVictoryCefsharp(isCorrect);
+
+        if (isCorrect && socket) {
+            setScore(prev => prev + 1);
+            socket.emit('victory', { language: 'csharp', winningTeam: currentTeamId });
         }
     };
 
+    // Effet de gestion de la victoire et redirection
     useEffect(() => {
         if (!isVictoryCefsharp) return;
-    
+
         const timer = setTimeout(() => {
             router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
-          }, 5000);
-      
+        }, 5000);
+
         return () => clearTimeout(timer);
     }, [isVictoryCefsharp, router, currentTeamId]);
 
     const CorrectionDisplay = () => (
-        <pre className="text-white">
-            {`class Program {\n    public static void Main`}
-            <span className="text-red-500">{`()`}</span>
-            {` {\n        Console.WriteLine("Salut !");\n    }\n}`}
+        <pre className="text-white whitespace-pre-wrap">
+            {correctCefsharp}
         </pre>
     );
 
+    // Rendu conditionnel si la victoire est trouvée
     if (isVictoryCefsharp) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-black">
