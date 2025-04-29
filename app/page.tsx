@@ -16,23 +16,8 @@ export default function HomePage() {
     right: [],
   });
 
-  // 🔥 Récupérer les rôles dynamiquement
-  // useEffect(() => {
-  //   const fetchRoles = async () => {
-  //     try {
-  //       const res = await fetch("http://localhost:8000/php/api.php");
-  //       const data = await res.json();
-  //       setRoles(data.roles);
-  //     } catch (err) {
-  //       console.error("Erreur lors du chargement des rôles :", err);
-  //     }
-  //   };
-
-  //   fetchRoles();
-  // }, []);
-
   const handleJoinTeam = async (teamSide: keyof typeof teams) => {
-    if (!pseudo.trim() || !role) return;
+    if (!pseudo.trim()) return;
 
     const idEquipe = teamSide === "left" ? 1 : 2;
 
@@ -42,6 +27,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pseudo: pseudo,
+          id_role: 1,
           id_equipe: idEquipe,
         }),
       });
@@ -99,21 +85,7 @@ export default function HomePage() {
             />
           </div>
 
-          {/* <div className="mb-6">
-            <label className="text-white mb-2 block">Choisir un rôle</label>
-            <select
-              className="p-2 rounded-lg border border-gray-400 text-black bg-white w-full"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-            >
-              <option value="">-- Sélectionner un rôle --</option>
-              <option value="1">Expert PHP</option>
-              <option value="2">Expert React</option>
-              <option value="3">Expert C++</option>
-              <option value="4">Expert C#</option>
-              <option value="5">Expert Dev Mobile</option>
-            </select>
-          </div> */}
+          
 
           <div className="flex gap-10">
             <button
