@@ -1,7 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+
+interface Equipe {
+    id_equipe: number;
+    equipe_nom: string;
+    equipe_score: number;
+    id_score: number;
+}
 
 interface Bug {
     id_bug: number;
@@ -12,12 +19,30 @@ interface Bug {
 
 export default function PageCEFSHARP() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
+
+    // Définir l'équipe par défaut à bleu
+    const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+
+    useEffect(() => {
+        if (teamParam === "rouge") {
+            setCurrentTeamId(2);
+        } else if (teamParam === "bleu") {
+            setCurrentTeamId(1);
+        }
+    }, [teamParam]);
+
     const [socket, setSocket] = useState<Socket | null>(null);
     const [score, setScore] = useState(0);
     const [codeCefsharp, setCodeCefsharp] = useState('');
     const [correctCefsharp, setCorrectCefsharp] = useState('');
     const [isVictoryCefsharp, setIsVictoryCefsharp] = useState(false);
+    const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
+    const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
+    // Récupérer les données des équipes et des bugs (en particulier le bug C#)
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -28,13 +53,15 @@ export default function PageCEFSHARP() {
                 const data = await response.json();
 
                 const bugCsharp = data.bugs.find((bug: Bug) => bug.id_bug === 4);
-
                 if (bugCsharp) {
                     setCodeCefsharp(bugCsharp.bug_codeinitial);
                     setCorrectCefsharp(bugCsharp.bug_reponse);
                 }
+
+                setEquipeBleu(data.equipeBleu);
+                setEquipeRouge(data.equipeRouge);
             } catch (error) {
-                console.error('Erreur lors du chargement du bug C#:', error);
+                console.error('Erreur lors du chargement des données C#:', error);
             }
         };
 
@@ -51,55 +78,34 @@ export default function PageCEFSHARP() {
         };
     }, []);
 
-    // Gestion des événements socket
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleVictory = (data: { language: string }) => {
-            if (data.language === 'csharp') {
-                setIsVictoryCefsharp(true);
-                setScore(prev => prev + 1);
-            }
-        };
-
-        socket.on('victory', handleVictory);
-
-        return () => {
-            socket.off('victory', handleVictory);
-        };
-    }, [socket]);
-
-    // Redirection après victoire
-    useEffect(() => {
-        if (!isVictoryCefsharp) return;
-
-        const timer = setTimeout(() => {
-            router.push("/EquipeA");
-        }, 5000);
-
-        return () => clearTimeout(timer);
-    }, [isVictoryCefsharp, router]);
-
+    // Fonction de gestion du changement de code
     const handleCodeChange = (newCode: string) => {
         setCodeCefsharp(newCode);
 
-        // **Meilleure gestion des espaces et retours à la ligne** pour comparer sans être sensible aux petits détails
-        const cleanedUserCode = newCode
-            .replace(/\s+/g, ' ')  // Remplace les espaces multiples par un seul espace
-            .trim(); // Enlève les espaces au début et à la fin
-        const cleanedCorrectCode = correctCefsharp
-            .replace(/\s+/g, ' ')  // Même nettoyage du code correct
-            .trim(); // Enlève les espaces au début et à la fin
+        // Nettoyage des espaces et des retours à la ligne avant comparaison
+        const cleanedUserCode = newCode.replace(/\s+/g, ' ').trim();
+        const cleanedCorrectCode = correctCefsharp.replace(/\s+/g, ' ').trim();
 
-        const isCorrect = cleanedUserCode === cleanedCorrectCode; // Comparaison nettoyée
-
+        // Comparaison du code nettoyé
+        const isCorrect = cleanedUserCode === cleanedCorrectCode;
         setIsVictoryCefsharp(isCorrect);
 
         if (isCorrect && socket) {
             setScore(prev => prev + 1);
-            socket.emit('victory', { language: 'csharp' });
+            socket.emit('victory', { language: 'csharp', winningTeam: currentTeamId });
         }
     };
+
+    // Effet de gestion de la victoire et redirection
+    useEffect(() => {
+        if (!isVictoryCefsharp) return;
+
+        const timer = setTimeout(() => {
+            router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [isVictoryCefsharp, router, currentTeamId]);
 
     const CorrectionDisplay = () => (
         <pre className="text-white whitespace-pre-wrap">
@@ -107,6 +113,7 @@ export default function PageCEFSHARP() {
         </pre>
     );
 
+    // Rendu conditionnel si la victoire est trouvée
     if (isVictoryCefsharp) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-black">
@@ -120,12 +127,14 @@ export default function PageCEFSHARP() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
             <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
+            
             <div className="flex flex-col items-center w-full max-w-2xl">
                 <img 
                     src="/images/logoCEFSHARP.png" 
                     alt="C# Logo" 
                     className="w-24 h-24 mb-6 object-contain"
                 />
+                
                 <textarea
                     className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
                     value={codeCefsharp}
