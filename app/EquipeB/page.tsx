@@ -161,15 +161,15 @@ function App() {
                 if (roleAttribue === rolesDisponibles[technoChoisie ?? ""]) {
                   // Redirection en fonction du rôle
                   if (roleAttribue === "Expert PHP") {
-                    router.push("/PagePHP");
+                    router.push("/PagePHP?team=rouge");
                   } else if (roleAttribue === "Expert React") {
-                    router.push("/PageJSX");
+                    router.push("/PageJSX?team=rouge");
                   } else if (roleAttribue === "Expert C++") {
-                    router.push("/PageCPLUSPLUS");
+                    router.push("/PageCPLUSPLUS?team=rouge");
                   } else if (roleAttribue === "Expert dev mobile") {
-                    router.push("/PageFLUTTER");
+                    router.push("/PageFLUTTER?team=rouge");
                   } else if (roleAttribue === "Expert C#") {
-                    router.push("/PageCEFSHARP");
+                    router.push("/PageCEFSHARP?team=rouge");
                   } else {
                     alert("Ce n’est pas votre rôle, vous ne pouvez pas résoudre ce bug.");
                   }

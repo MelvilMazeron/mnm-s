@@ -1,20 +1,33 @@
 "use client";
 import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Equipe {
     id_equipe: number;
     equipe_nom: string;
     equipe_score: number;
     id_score: number;
-  }
+}
 
-export default function PageCPLUSPLUS() {
+export default function PageCPlusPlus() {
     const router = useRouter();
-    const [socket, setSocket] = useState<Socket | null>(null);
-    const [score, setScore] = useState(0);
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
 
+    // Définir l'équipe par défaut à bleu
+    const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+
+    useEffect(() => {
+        if (teamParam === "rouge") {
+        setCurrentTeamId(2);
+        } else if (teamParam === "bleu") {
+        setCurrentTeamId(1);
+        }
+    }, [teamParam]);
+
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [codeCPlusPlus, setCodeCPlusPlus] = useState(
         `#include <iostream> 
         using namespace std;
@@ -62,24 +75,6 @@ export default function PageCPLUSPLUS() {
         };
     }, []);
 
-    // Écoute des événements de victoire
-    useEffect(() => {
-        if (!socket) return;
-
-        const victoryHandler = (data: { language: string }) => {
-            if (data.language === 'c++') {
-                setIsVictoryCPlusPlus(true);
-                setScore((prevScore) => prevScore + 1);
-            }
-        };
-
-        socket.on('victory', victoryHandler);
-
-        return () => {
-            socket.off('victory', victoryHandler);
-        };
-    }, [socket]);
-
     const handleCodeChange = async (newCode: string) => {
         setCodeCPlusPlus(newCode);
     
@@ -88,7 +83,7 @@ export default function PageCPLUSPLUS() {
     
         setIsVictoryCPlusPlus(true);
     
-        const idEquipeGagnante = determineWinningTeam(); // 1 ou 2
+        const idEquipeGagnante = currentTeamId;
         console.log("Équipe gagnante déterminée :", idEquipeGagnante);
     
         try {
@@ -105,7 +100,7 @@ export default function PageCPLUSPLUS() {
     
             if (data.success && socket) {
                 socket.emit('victory', { 
-                    language: 'php',
+                    language: 'c++',
                     winningTeam: idEquipeGagnante 
                 });
     
@@ -129,35 +124,16 @@ export default function PageCPLUSPLUS() {
             console.error("Erreur lors de la mise à jour du score:", error);
         }
     };
-    
-    
-    function determineWinningTeam(currentTeamId?: number): 1 | 2 {
-        if (currentTeamId === 1 || currentTeamId === 2) {
-            return currentTeamId;
-        }
-    
-        const currentPath = window.location.pathname.toLowerCase();
-    
-        if (currentPath.includes("/equipea") || currentPath.includes("/bleu")) {
-            return 1; // Equipe Bleue
-        } 
-        if (currentPath.includes("/equipeb") || currentPath.includes("/rouge")) {
-            return 2; // Equipe Rouge
-        }
-        
-        console.warn("Chemin inconnu, retour par défaut équipe 1 (bleu)");
-        return 1; 
-    }
 
     useEffect(() => {
         if (!isVictoryCPlusPlus) return;
     
         const timer = setTimeout(() => {
-            router.push(determineWinningTeam() === 1 ? "/EquipeA" : "/EquipeB");
-        }, 5000);
-    
+            router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
+          }, 5000);
+      
         return () => clearTimeout(timer);
-    }, [isVictoryCPlusPlus, router]);
+    }, [isVictoryCPlusPlus, router, currentTeamId]);
 
     const CPlusPlusCorrection = () => {
         return (
@@ -166,7 +142,7 @@ export default function PageCPLUSPLUS() {
     using namespace std;
     
     int main() { 
-        cout << "Hello world!`}
+        cout << "Hello world!"`}
                 <span className="text-red-500">"</span> {`<< endl; 
         return 0; 
     }`}
@@ -202,8 +178,6 @@ export default function PageCPLUSPLUS() {
                     spellCheck="false"
                     aria-label="C++ code editor"
                 />
-                
-               
             </div>
         </div>
     );

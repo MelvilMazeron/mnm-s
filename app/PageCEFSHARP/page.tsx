@@ -1,19 +1,33 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Equipe {
     id_equipe: number;
     equipe_nom: string;
     equipe_score: number;
     id_score: number;
-  }
+}
 
 export default function PageCEFSHARP() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const teamParam = searchParams.get("team"); // 'bleu' ou 'rouge'
+
+    // Définir l'équipe par défaut à bleu
+    const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // 1 = bleu par défaut
+
+    useEffect(() => {
+        if (teamParam === "rouge") {
+        setCurrentTeamId(2);
+        } else if (teamParam === "bleu") {
+        setCurrentTeamId(1);
+        }
+    }, [teamParam]);
+
     const [socket, setSocket] = useState<Socket | null>(null);
-    const [score, setScore] = useState(0);
     const [codeCefsharp, setCodeCefsharp] = useState(
         `class Program { 
             public static void Main { 
@@ -57,23 +71,6 @@ export default function PageCEFSHARP() {
         };
     }, []);
 
-    // Gestion des événements socket
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleVictory = (data: { language: string }) => {
-            if (data.language === 'csharp') {
-                setIsVictoryCefsharp(true);
-                setScore(prev => prev + 1);
-            }
-        };
-
-        socket.on('victory', handleVictory);
-        return () => {
-            socket.off('victory', handleVictory);
-        };
-    }, [socket]);
-
     const handleCodeChange = async (newCode: string) => {
         setCodeCefsharp(newCode);
     
@@ -82,7 +79,7 @@ export default function PageCEFSHARP() {
     
         setIsVictoryCefsharp(true);
     
-        const idEquipeGagnante = determineWinningTeam(); // 1 ou 2
+        const idEquipeGagnante = currentTeamId;
         console.log("Équipe gagnante déterminée :", idEquipeGagnante);
     
         try {
@@ -99,7 +96,7 @@ export default function PageCEFSHARP() {
     
             if (data.success && socket) {
                 socket.emit('victory', { 
-                    language: 'php',
+                    language: 'csharp',
                     winningTeam: idEquipeGagnante 
                 });
     
@@ -123,35 +120,16 @@ export default function PageCEFSHARP() {
             console.error("Erreur lors de la mise à jour du score:", error);
         }
     };
-    
-    
-    function determineWinningTeam(currentTeamId?: number): 1 | 2 {
-        if (currentTeamId === 1 || currentTeamId === 2) {
-            return currentTeamId;
-        }
-    
-        const currentPath = window.location.pathname.toLowerCase();
-    
-        if (currentPath.includes("/equipea") || currentPath.includes("/bleu")) {
-            return 1; // Equipe Bleue
-        } 
-        if (currentPath.includes("/equipeb") || currentPath.includes("/rouge")) {
-            return 2; // Equipe Rouge
-        }
-        
-        console.warn("Chemin inconnu, retour par défaut équipe 1 (bleu)");
-        return 1; 
-    }
 
     useEffect(() => {
         if (!isVictoryCefsharp) return;
     
         const timer = setTimeout(() => {
-            router.push(determineWinningTeam() === 1 ? "/EquipeA" : "/EquipeB");
-        }, 5000);
-    
+            router.push(currentTeamId === 1 ? "/EquipeA" : "/EquipeB");
+          }, 5000);
+      
         return () => clearTimeout(timer);
-    }, [isVictoryCefsharp, router]);
+    }, [isVictoryCefsharp, router, currentTeamId]);
 
     const CorrectionDisplay = () => (
         <pre className="text-white">
@@ -189,8 +167,6 @@ export default function PageCEFSHARP() {
                     spellCheck="false"
                     aria-label="C# code editor"
                 />
-                
-               
             </div>
         </div>
     );
