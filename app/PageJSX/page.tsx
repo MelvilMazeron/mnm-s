@@ -3,6 +3,13 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Equipe {
+    id_equipe: number;
+    equipe_nom: string;
+    equipe_score: number;
+    id_score: number;
+  }
+
 export default function PageJSX() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -12,11 +19,29 @@ export default function PageJSX() {
     );
     const [isVictoryJsx, setIsVictoryJsx] = useState(false);
 
+    const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
+    const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
+
     const correctJsx = `import React from 'react'; 
     function Greeting(props) { 
         return <h1>Hello {props.name}</h1>; 
     } 
     export default Greeting;`;
+
+    useEffect(() => {
+        const fetchEquipes = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                const data = await response.json();
+                setEquipeBleu(data.equipeBleu);
+                setEquipeRouge(data.equipeRouge);
+            } catch (error) {
+                console.error("Erreur lors du chargement des équipes:", error);
+            }
+        };
+
+        fetchEquipes();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -46,26 +71,85 @@ export default function PageJSX() {
     }, [socket]);
 
     // Redirection après victoire
+    const handleCodeChange = async (newCode: string) => {
+        setCodeJsx(newCode);
+    
+        const isCorrect = newCode === correctJsx;
+        if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
+    
+        setIsVictoryJsx(true);
+    
+        const idEquipeGagnante = determineWinningTeam(); // 1 ou 2
+        console.log("Équipe gagnante déterminée :", idEquipeGagnante);
+    
+        try {
+            const response = await fetch("http://localhost:8000/php/update_score.php", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+            });
+    
+            const data = await response.json();
+            console.log("Réponse API update_score :", data);
+    
+            if (data.success && socket) {
+                socket.emit('victory', { 
+                    language: 'php',
+                    winningTeam: idEquipeGagnante 
+                });
+    
+                if (idEquipeGagnante === 1) {
+                    setEquipeBleu(prevState => 
+                        prevState.map(equipe => ({
+                            ...equipe,
+                            equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
+                        }))
+                    );
+                } else if (idEquipeGagnante === 2) {
+                    setEquipeRouge(prevState => 
+                        prevState.map(equipe => ({
+                            ...equipe,
+                            equipe_score: equipe.equipe_score + 1
+                        }))
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("Erreur lors de la mise à jour du score:", error);
+        }
+    };
+    
+    
+    function determineWinningTeam(currentTeamId?: number): 1 | 2 {
+        if (currentTeamId === 1 || currentTeamId === 2) {
+            return currentTeamId;
+        }
+    
+        const currentPath = window.location.pathname.toLowerCase();
+    
+        if (currentPath.includes("/equipea") || currentPath.includes("/bleu")) {
+            return 1; // Equipe Bleue
+        } 
+        if (currentPath.includes("/equipeb") || currentPath.includes("/rouge")) {
+            return 2; // Equipe Rouge
+        }
+        
+        console.warn("Chemin inconnu, retour par défaut équipe 1 (bleu)");
+        return 1; 
+    }
+
     useEffect(() => {
         if (!isVictoryJsx) return;
-
+    
         const timer = setTimeout(() => {
-            router.push("/EquipeA");
+            router.push(determineWinningTeam() === 1 ? "/EquipeA" : "/EquipeB");
         }, 5000);
-
+    
         return () => clearTimeout(timer);
     }, [isVictoryJsx, router]);
 
-    const handleCodeChange = (newCode: string) => {
-        setCodeJsx(newCode);
-        const isCorrect = newCode === correctJsx;
-        setIsVictoryJsx(isCorrect);
-        
-        if (isCorrect && socket) {
-            setScore(prev => prev + 1);
-            socket.emit('victory', { language: 'jsx' });
-        }
-    };
 
     const CorrectionDisplay = () => (
         <pre className="text-white">
@@ -88,12 +172,14 @@ export default function PageJSX() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
             <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
+            
             <div className="flex flex-col items-center w-full max-w-2xl">
                 <img 
                     src="/images/logoJSX.png" 
                     alt="JSX Logo" 
                     className="w-24 h-24 mb-6 object-contain"
                 />
+                
                 <textarea
                     className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
                     value={codeJsx}
@@ -101,6 +187,8 @@ export default function PageJSX() {
                     spellCheck="false"
                     aria-label="JSX code editor"
                 />
+                
+               
             </div>
         </div>
     );

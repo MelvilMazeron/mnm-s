@@ -3,6 +3,13 @@ import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+interface Equipe {
+    id_equipe: number;
+    equipe_nom: string;
+    equipe_score: number;
+    id_score: number;
+  }
+
 export default function PageFLUTTER() {
     const router = useRouter();
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -23,6 +30,9 @@ export default function PageFLUTTER() {
     );
     const [isVictoryFlutter, setIsVictoryFlutter] = useState(false);
 
+    const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
+    const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
+
     const correctFlutter = `import 'package:flutter/material.dart'; 
     void main() { 
         runApp(MyApp()); 
@@ -35,6 +45,21 @@ export default function PageFLUTTER() {
             ); 
         } 
     }`;
+
+    useEffect(() => {
+        const fetchEquipes = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/php/api.php");
+                const data = await response.json();
+                setEquipeBleu(data.equipeBleu);
+                setEquipeRouge(data.equipeRouge);
+            } catch (error) {
+                console.error("Erreur lors du chargement des équipes:", error);
+            }
+        };
+
+        fetchEquipes();
+    }, []);
 
     // Initialisation du socket
     useEffect(() => {
@@ -64,27 +89,84 @@ export default function PageFLUTTER() {
         };
     }, [socket]);
 
-    // Redirection après victoire
-    useEffect(() => {
-        if (!isVictoryFlutter) return;
-
-        const timer = setTimeout(() => {
-            router.push("/EquipeA");
-        }, 5000);
-
-        return () => clearTimeout(timer);
-    }, [isVictoryFlutter, router]);
-
-    const handleCodeChange = (newCode: string) => {
+    const handleCodeChange = async (newCode: string) => {
         setCodeFlutter(newCode);
+    
         const isCorrect = newCode === correctFlutter;
-        setIsVictoryFlutter(isCorrect);
-        
-        if (isCorrect && socket) {
-            setScore(prev => prev + 1);
-            socket.emit('victory', { language: 'flutter' });
+        if (!isCorrect) return; // Si ce n'est pas correct, on sort directement
+    
+        setIsVictoryFlutter(true);
+    
+        const idEquipeGagnante = determineWinningTeam(); // 1 ou 2
+        console.log("Équipe gagnante déterminée :", idEquipeGagnante);
+    
+        try {
+            const response = await fetch("http://localhost:8000/php/update_score.php", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id_equipe: idEquipeGagnante }),
+            });
+    
+            const data = await response.json();
+            console.log("Réponse API update_score :", data);
+    
+            if (data.success && socket) {
+                socket.emit('victory', { 
+                    language: 'php',
+                    winningTeam: idEquipeGagnante 
+                });
+    
+                if (idEquipeGagnante === 1) {
+                    setEquipeBleu(prevState => 
+                        prevState.map(equipe => ({
+                            ...equipe,
+                            equipe_score: equipe.equipe_score + 1 // on augmente de 1 localement
+                        }))
+                    );
+                } else if (idEquipeGagnante === 2) {
+                    setEquipeRouge(prevState => 
+                        prevState.map(equipe => ({
+                            ...equipe,
+                            equipe_score: equipe.equipe_score + 1
+                        }))
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("Erreur lors de la mise à jour du score:", error);
         }
     };
+    
+    
+    function determineWinningTeam(currentTeamId?: number): 1 | 2 {
+        if (currentTeamId === 1 || currentTeamId === 2) {
+            return currentTeamId;
+        }
+    
+        const currentPath = window.location.pathname.toLowerCase();
+    
+        if (currentPath.includes("/equipea") || currentPath.includes("/bleu")) {
+            return 1; // Equipe Bleue
+        } 
+        if (currentPath.includes("/equipeb") || currentPath.includes("/rouge")) {
+            return 2; // Equipe Rouge
+        }
+        
+        console.warn("Chemin inconnu, retour par défaut équipe 1 (bleu)");
+        return 1; 
+    }
+
+    useEffect(() => {
+        if (!isVictoryFlutter) return;
+    
+        const timer = setTimeout(() => {
+            router.push(determineWinningTeam() === 1 ? "/EquipeA" : "/EquipeB");
+        }, 5000);
+    
+        return () => clearTimeout(timer);
+    }, [isVictoryFlutter, router]);
 
     const CorrectionDisplay = () => (
         <pre>
@@ -105,20 +187,25 @@ export default function PageFLUTTER() {
     }
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-4">
-            <h1 className="text-3xl font-bold mb-6">Bug Hunter Arena</h1>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
+            <h1 className="text-3xl font-bold mb-8 text-white">Bug Hunter Arena</h1>
+            
             <div className="flex flex-col items-center w-full max-w-2xl">
                 <img 
                     src="/images/logoFLUTTER.png" 
-                    alt="Flutter Logo" 
+                    alt="JSX Logo" 
                     className="w-24 h-24 mb-6 object-contain"
                 />
+                
                 <textarea
-                    className="w-full h-64 p-4 border-2 border-white rounded-lg bg-black font-mono text-sm"
+                    className="w-full h-64 p-4 border-2 border-gray-600 rounded-lg bg-gray-900 text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
                     value={codeFlutter}
                     onChange={(e) => handleCodeChange(e.target.value)}
                     spellCheck="false"
+                    aria-label="Flutter code editor"
                 />
+                
+               
             </div>
         </div>
     );

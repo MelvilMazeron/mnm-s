@@ -18,7 +18,6 @@ export default function PagePHP() {
     );
     const [isVictoryPhp, setIsVictoryPhp] = useState(false);
     
-    // États des équipes
     const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
     const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
