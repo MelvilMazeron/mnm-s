@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { io, Socket } from "socket.io-client";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Bug {
     id_bug: number;
@@ -23,25 +22,16 @@ export default function PageCPLUSPLUS() {
     const teamParam = searchParams.get("team");
 
     const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1);
-
-    useEffect(() => {
-        if (teamParam === "rouge") setCurrentTeamId(2);
-        else if (teamParam === "bleu") setCurrentTeamId(1);
-    }, [teamParam]);
-
-    const [socket, setSocket] = useState<Socket | null>(null);
     const [codeCPlusPlus, setCodeCPlusPlus] = useState('');
     const [correctCplusplus, setCorrectCplusplus] = useState('');
     const [isVictoryCPlusPlus, setIsVictoryCPlusPlus] = useState(false);
     const [equipeBleu, setEquipeBleu] = useState<Equipe[]>([]);
     const [equipeRouge, setEquipeRouge] = useState<Equipe[]>([]);
 
-    // Socket.io init
     useEffect(() => {
-        const socketInstance = io('http://localhost:3001');
-        setSocket(socketInstance);
-        return () => socketInstance.disconnect();
-    }, []);
+        if (teamParam === "rouge") setCurrentTeamId(2);
+        else if (teamParam === "bleu") setCurrentTeamId(1);
+    }, [teamParam]);
 
     // Récupérer les données du bug
     useEffect(() => {
@@ -95,12 +85,7 @@ export default function PageCPLUSPLUS() {
             });
 
             const data = await response.json();
-            if (data.success && socket) {
-                socket.emit('victory', {
-                    language: 'c++',
-                    winningTeam: currentTeamId,
-                });
-
+            if (data.success) {
                 if (currentTeamId === 1) {
                     setEquipeBleu(prev =>
                         prev.map(equipe => ({

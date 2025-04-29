@@ -10,7 +10,6 @@ interface Role {
 export default function HomePage() {
   const [pseudo, setPseudo] = useState("");
   const [role, setRole] = useState("");
-  const [roles, setRoles] = useState<Role[]>([]);
   const [team, setTeam] = useState<"left" | "right" | null>(null);
   const [teams, setTeams] = useState<{ left: string[]; right: string[] }>({
     left: [],
@@ -18,19 +17,19 @@ export default function HomePage() {
   });
 
   // 🔥 Récupérer les rôles dynamiquement
-  useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/php/api.php?get_roles=1");
-        const data = await res.json();
-        setRoles(data.roles);
-      } catch (err) {
-        console.error("Erreur lors du chargement des rôles :", err);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchRoles = async () => {
+  //     try {
+  //       const res = await fetch("http://localhost:8000/php/api.php");
+  //       const data = await res.json();
+  //       setRoles(data.roles);
+  //     } catch (err) {
+  //       console.error("Erreur lors du chargement des rôles :", err);
+  //     }
+  //   };
 
-    fetchRoles();
-  }, []);
+  //   fetchRoles();
+  // }, []);
 
   const handleJoinTeam = async (teamSide: keyof typeof teams) => {
     if (!pseudo.trim() || !role) return;
@@ -43,7 +42,6 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pseudo: pseudo,
-          id_role: parseInt(role),
           id_equipe: idEquipe,
         }),
       });

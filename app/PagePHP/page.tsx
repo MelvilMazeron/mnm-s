@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { io, Socket } from "socket.io-client";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Equipe {
   id_equipe: number;
@@ -19,12 +18,10 @@ interface Bug {
 
 export default function PagePHP() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const teamParam = searchParams.get("team");
 
   const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [codePhp, setCodePhp] = useState('');
   const [correctPhp, setCorrectPhp] = useState('');
   const [isVictoryPhp, setIsVictoryPhp] = useState(false);
@@ -59,23 +56,6 @@ export default function PagePHP() {
     fetchData();
   }, []);
 
-  // Initialisation du socket
-  useEffect(() => {
-    const socketInstance = io('http://localhost:3001');
-    setSocket(socketInstance);
-    return () => socketInstance.disconnect();
-  }, []);
-
-  // Gestion des événements socket
-  useEffect(() => {
-    if (!socket) return;
-    const handleVictory = (data: { language: string }) => {
-      if (data.language === 'php') setIsVictoryPhp(true);
-    };
-    socket.on('victory', handleVictory);
-    return () => socket.off('victory', handleVictory);
-  }, [socket]);
-
   const handleCodeChange = async (newCode: string) => {
     setCodePhp(newCode);
 
@@ -95,12 +75,7 @@ export default function PagePHP() {
       });
 
       const data = await response.json();
-      if (data.success && socket) {
-        socket.emit('victory', {
-          language: 'php',
-          winningTeam: currentTeamId
-        });
-
+      if (data.success) {
         if (currentTeamId === 1) {
           setEquipeBleu(prev => prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 })));
         } else {

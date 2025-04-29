@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { io, Socket } from "socket.io-client";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Equipe {
   id_equipe: number;
@@ -23,7 +22,6 @@ export default function PageJSX() {
   const teamParam = searchParams.get("team");
 
   const [currentTeamId, setCurrentTeamId] = useState<1 | 2>(1); // bleu par défaut
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [codeJsx, setCodeJsx] = useState('');
   const [correctJsx, setCorrectJsx] = useState('');
   const [isVictoryJsx, setIsVictoryJsx] = useState(false);
@@ -56,12 +54,6 @@ export default function PageJSX() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const socketInstance = io("http://localhost:3001");
-    setSocket(socketInstance);
-    return () => socketInstance.disconnect();
-  }, []);
-
   const handleCodeChange = async (newCode: string) => {
     setCodeJsx(newCode);
 
@@ -81,12 +73,7 @@ export default function PageJSX() {
       });
 
       const data = await response.json();
-      if (data.success && socket) {
-        socket.emit("victory", {
-          language: "jsx",
-          winningTeam: currentTeamId,
-        });
-
+      if (data.success) {
         if (currentTeamId === 1) {
           setEquipeBleu(prev =>
             prev.map(e => ({ ...e, equipe_score: e.equipe_score + 1 }))
